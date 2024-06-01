@@ -76,14 +76,26 @@ lp_var <- function(name, ..., bound = NULL, integer = FALSE, binary = FALSE) {
 }
 lp_variable <- lp_var
 
+#' Title
+#'
+#' @param objective_fun
+#'
+#' @return
+#' @export
+#'
+#' @examples
+lp_obj <- function(objective_fun) {
+    enexpr(objective_fun)
+}
+
 #' Define a constraint for a linear problem.
 #' @description
 #' Creates one or more linear constraints
 #'
 #' @param constraint In the form of \code{2*x - y <= b}. The variables
 #' must always be on the left hand side. The inequality can be one of:
-#' '<', '<=', '==', '>', '>='.
-#' @param ... Abbreviations for variables. See \link{examples}.
+#' \code{<=, <, ==, >, >=}
+#' @param ... Abbreviations for variables. See examples.
 #'
 #' @details
 #' If the left hand side of the constraint is not atomic, the values are summed.

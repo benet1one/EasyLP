@@ -1,11 +1,11 @@
 Package: easylp
 Type: Package
-Title: What the Package Does (Title Case)
+Title: Define Complex Linear Problems 
 Version: 0.1.0
-Author: Bernat Garcia
+Author: benet
 Maintainer: The package maintainer <yourself@somewhere.net>
 Description: Establishes a powerful syntax to define linear problems
-License: What license is it under?
+License: MIT
 Encoding: UTF-8
 LazyData: true
 Suggests: 
