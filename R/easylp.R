@@ -124,18 +124,8 @@ lp_obj <- function(objective_fun) {
 #'
 #' # Notice how 'p' serves very different purposes in the two cases.
 lp_con <- function(constraint, ...) {
-
-    constraint <- enexpr(constraint)
-    constraint <- inside(constraint)
-
-    con <- if (constraint[[1L]] == quote(`for`)) {
-        browser()
-        for_split(constraint) %>% map(~parse_constraint(.x, ...))
-    } else {
-        list(parse_constraint(constraint, ...))
-    }
-
-    structure(con, class = "lp_con")
+    parsed <- parse_constraint(enexpr(constraint), ...)
+    structure(parsed, class = "lp_con")
 }
 lp_constraint <- lp_con
 

@@ -15,8 +15,7 @@ z <- lp_var("z", binary = TRUE)
 varlist <- join_lp_vars(list(x, y, z))
 
 calc <- varlist$x[2, ] / 0.2
-print(calc$coef)
-
 my_con <- lp_con(for (t in town) { x[p, t] >= demand[t] },
                  p = provider)
-print(my_con)
+
+double_con <- lp_con(for (p in provider) for (t in town) {x[p, t] >= 0})

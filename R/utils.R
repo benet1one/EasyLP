@@ -51,6 +51,16 @@ parse_constraint <- function(constraint, ...) {
     constraint <- inside(constraint)
     dir <- constraint[[1L]] |> format()
 
+    if (constraint[[1L]] == quote(`for`)) {
+
+        multiple_con <- map(for_split(constraint), parse_constraint, ...)
+
+        if (!is_constraint_atomic(multiple_con[[1L]]))
+            multiple_con <- unlist(multiple_con, recursive = FALSE)
+
+        return(multiple_con)
+    }
+
     if (!is.element(dir, c("<=", "<", ">=", ">", "==")))
         stop("Constraint does not contain inequality.")
 
@@ -60,10 +70,13 @@ parse_constraint <- function(constraint, ...) {
         lhs = substituteDirect(constraint[[2L]], env),
         dir = dir,
         rhs = substituteDirect(constraint[[3L]], env)
-    )
+    ) %>% structure(class = "atomic_lp_con")
 }
 deparse_constraint <- function(constraint) {
     map(constraint, format) |> do.call(what = paste)
+}
+is_constraint_atomic <- function(constraint) {
+    is.element("atomic_lp_con", class(constraint))
 }
 for_split <- function(expr) {
 

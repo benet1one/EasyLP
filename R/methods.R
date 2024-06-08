@@ -31,16 +31,22 @@ Ops.lp_var <- function(e1, e2) {
 
     fun <- match.fun(.Generic)
 
-    if (.Generic %in% c("^", "%%", "%/%"))
+    if (.Generic %in% c("^", "%*%", "%%", "%/%"))
         stop("Can't use operations '^', '%%', '%/%' in a linear problem")
 
-    if ("lp_var" %in% class(e1)) {
+    if (missing(e2)) {
+        x <- e1
+        x$coef[x$selected] <- fun(x$coef[x$selected])
+        x
+
+    } else if ("lp_var" %in% class(e1)) {
         x <- e1
         x$coef[x$selected] <- fun(x$coef[x$selected], e2)
         x
 
     } else if (.Generic == "/") {
         stop("Can't divide by a variable in a linear problem")
+
     } else {
         x <- e2
         x$coef[x$selected] <- fun(e1, x$coef[x$selected])
