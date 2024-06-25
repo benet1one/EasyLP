@@ -98,26 +98,44 @@ for_split <- function(expr) {
     result
 }
 
-join_lp_vars <- function(lp_var_list) {
+join_lp_vars <- function(varlist) {
 
-    nams <- map_chr(lp_var_list, ~.x$name)
+    nams <- map_chr(varlist, ~.x$name)
     if (anyDuplicated(nams))
         stop("Variables must have unique names")
 
     pv <- 0L
 
-    for (k in seq_along(lp_var_list)) {
-        lp_var_list [[k]] $ previous_vars <- pv
-        pv <- pv + lp_var_list [[k]] $ n_vars
+    for (k in seq_along(varlist)) {
+        varlist [[k]] $ previous_vars <- pv
+        pv <- pv + length(varlist[[k]])
     }
 
-    for (k in seq_along(lp_var_list)) {
-        lp_var_list [[k]] $ n_vars <- pv
-        lp_var_list [[k]] $ selected [] <- TRUE
-        lp_var_list [[k]] $ coef [] <- TRUE
+    total <- pv
+
+    for (k in seq_along(varlist)) {
+        x <- varlist [[k]]
+        pv <- x$previous_vars
+        varlist [[k]] $ ind <- x$ind + pv
+        varlist [[k]] $ selected [] <- FALSE
+        varlist [[k]] $ selected [x$ind] <- TRUE
+        varlist [[k]] $ coef <- cbind(
+            matrix(0, nrow = nrow(x$coef), ncol = pv),
+            x$coef,
+            matrix(0, nrow = nrow(x$coef), ncol = total - (pv + length(x)))
+        )
+        # varlist [[k]] $ add <-
     }
 
-    names(lp_var_list) <- nams
-    lp_var_list
+    names(varlist) <- nams
+    varlist
 }
 
+name_constraint <- function(constraint, name) {
+    if (name == "")
+        return(constraint)
+    if (nrow(constraint$mat) > 1L)
+        name <- paste0(name, " [", 1:nrow(constraint$mat), "]")
+    rownames(constraint$mat) <- name
+    constraint
+}

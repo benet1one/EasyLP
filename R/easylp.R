@@ -69,9 +69,9 @@ lp_var <- function(name, ..., bound = NULL, integer = FALSE, binary = FALSE) {
         integer = integer,
         binary = binary,
         previous_vars = 0L,
-        n_vars = length(ind),
         selected = rep(TRUE, length(ind)),
-        coef = rep(1, length(ind))
+        coef = diag(length(ind)),
+        add = numeric(length(ind))
     ) |> structure(class = "lp_var")
 }
 lp_variable <- lp_var
