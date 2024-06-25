@@ -55,9 +55,9 @@ horizontal_multiply <- function(x, mult) {
 horizontal_mat_sum <- function(x, y) {
 
     if (nrow(x) == 1L)
-        x <- x[rep(1L, nrow(y)), ]
+        x <- x[rep(1L, nrow(y)), , drop = FALSE]
     if (nrow(y) == 1L)
-        y <- y[rep(1L, nrow(x)), ]
+        y <- y[rep(1L, nrow(x)), , drop = FALSE]
 
     stopifnot(identical(dim(x), dim(y)))
     return(x + y)
@@ -164,7 +164,8 @@ Compare_lp_var <- function(e1, e2, .Generic) {
     ) |> structure(class = "lp_con")
 }
 #' @export
-sum.lp_var <- function(x, ...) {
+sum.lp_var <- function(x, ..., na.rm = FALSE) {
+    check_dots_empty(error = "Function 'sum' only supports one variable.")
     x$coef <- matrix(colSums(x$coef), nrow = 1L)
     x$add <- sum(x$add)
     return(x)

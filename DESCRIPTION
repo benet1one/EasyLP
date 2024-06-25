@@ -1,7 +1,7 @@
 Package: easylp
 Type: Package
 Title: Define Complex Linear Problems 
-Version: 0.1.0
+Version: 0.1.1
 Author: benet
 Maintainer: The package maintainer <yourself@somewhere.net>
 Description: Establishes a powerful syntax to define linear problems

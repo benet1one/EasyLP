@@ -34,7 +34,7 @@ easylp <- R6Class("easylp", public = list(
             integer <- TRUE
 
         if (...length() == 0L) {
-            sets <- list(scalar = 1)
+            sets <- list(scalar = "")
         } else {
             sets <- list(...)
             if (any(names(sets) == ""))
@@ -73,8 +73,9 @@ easylp <- R6Class("easylp", public = list(
             matrix(0, nrow = nrow(self$constraints$mat), ncol = len)
         )
 
-        # Update objective function
+        # Update objective function and solution
         self$objective_fun <- c(self$objective_fun, numeric(len))
+        self$solution <- c(self$solution, numeric(len))
 
         # Create new variable
         x <- list(
@@ -115,17 +116,17 @@ easylp <- R6Class("easylp", public = list(
     },
     min = function(objective) {
         self$direction <- "min"
-        self$.obj(objective)
+        self$.obj(enexpr(objective))
     },
     max = function(objective) {
         self$direction <- "max"
-        self$.obj(objective)
+        self$.obj(enexpr(objective))
     },
     solve = function(...) {
 
         if (self$n_vars == 0L)
             stop("Problem contains no variables.")
-        if (all(objective_fun == 0))
+        if (all(self$objective_fun == 0))
             stop("Must specify objective function.")
 
         integer <- logical(self$n_vars)
@@ -140,21 +141,25 @@ easylp <- R6Class("easylp", public = list(
 
         self$lpsolve <- lpSolve::lp(
             direction = self$direction,
-            objective.in = objective_fun,
+            objective.in = self$objective_fun,
             const.mat = self$constraints$mat,
             const.dir = self$constraints$dir,
             const.rhs = self$constraints$rhs,
-            int.vec = integer,
-            binary.vec = binary,
+            int.vec = which(integer),
+            binary.vec = which(binary),
             ...
         )
 
-        self$objective_value <- self$lpsolve$objval
+        self$objective_value <- self$lpsolve$objval + self$objective_add
         self$solution <- self$lpsolve$solution
-        self$status <- if (self$lpsolve$status == 0) "optimal" else "unfeasable"
+        self$status <- if (self$lpsolve$status == 0)
+            "optimal"
+        else
+            "unfeasable/unlimited"
+        self
     },
     .obj = function(expr) {
-        envir <- as_environment(self$variables, parent = caller_env())
+        envir <- as_environment(self$variables, parent = caller_env(2))
         joint_var <- sum(eval(expr, envir))
         self$objective_fun <- joint_var$coef
         self$objective_add <- joint_var$add
@@ -164,5 +169,29 @@ easylp <- R6Class("easylp", public = list(
         expr <- enexpr(expr)
         envir <- as_environment(self$variables, parent = caller_env())
         eval(expr, envir)
+    },
+
+    pretty_solution = function() {
+        lapply(self$variables, \(x) {
+            sol <- x$ind
+            sol[] <- self$solution[x$ind]
+            sol
+        })
+    },
+    print = function() {
+        cat("Easy Linear Problem \nStatus:", self$status)
+        if (self$status != "optimal")
+            return()
+
+        val <- self$objective_value
+        add <- self$objective_add
+        cat("\nObjective Value =", val - add)
+        if (add != 0)
+            cat("", ifelse(add > 0, "+", "-"), abs(add), "=", val)
+
+        cat("\nSolution:\n")
+        print(self$pretty_solution())
     }
 ))
+
+
