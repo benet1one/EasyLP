@@ -1,17 +1,37 @@
 
 require(R6)
-require(lpSolve)
+require(lpSolveAPI)
 require(rlang)
 
+#' Easy Linear Problem
+#' @description
+#' Object containing all the information about a linear problem, as well
+#' as functions to define, modify, and solve it.
+#'
+#' @field variables List of variables included.
+#' @field nvar Actual number of variables, \code{sum(lengths(variables))}.
+#' @field constraint List including the constraint matrix 'mat',
+#' a vector of directions 'dir', and a vector of right-hand-side values 'rhs'.
+#' @field objective_fun Vector of coefficients for the objective function.
+#' @field objective_add Optional value to add to the objective value.
+#' @field direction Character indicating whether to minimize 'min' or maximize
+#' 'max' the objective function.
+#' @field status Character indicating the status of the problem. Initialized as
+#' 'unsolved'. Changes when solving the problem using \link{easylp$solve()}.
+#' @field objective_value Value of the objective function with the optimal solution.
+#' @field solution Vector containing the optimal values for the variables.
+#' See \link{easylp$pretty_solution()} for a better representation of the solution.
+#' @field pointer Pointer to an lpSolveAPI object.
+#' See more at \url{https://lpsolve.sourceforge.net/5.5/}.
 easylp <- R6Class("easylp", public = list(
 
     variables = list(),
-    constraints = list(
+    constraint = list(
         mat = array(dim = c(0, 0)),
         dir = character(),
         rhs = numeric()
     ),
-    n_vars = 0L,
+    nvar = 0L,
 
     objective_fun = numeric(),
     objective_add = 0,
@@ -19,19 +39,36 @@ easylp <- R6Class("easylp", public = list(
 
     status = "unsolved",
     objective_value = NA_real_,
-    solution = numeric(),
-    lpsolve = list(),
+    solution = structure(
+        numeric(),
+        info = "Use easylp$pretty_solution() to display the solution!"
+    ),
+    sensitivity = list(
+        objective = array(
+            dim = c(0, 2),
+            dimnames = list(Var = character(), Bound = c("Upper", "Lower"))
+        ),
+        rhs = array(
+            dim = c(0, 2),
+            dimnames = list(Var = character(), Bound = c("Upper", "Lower"))
+        )
+    ),
+    pointer = NULL,
 
-    var = function(name, ..., integer = FALSE, binary = FALSE) {
+    var = function(name, ..., integer = FALSE, binary = FALSE,
+                   lower_bound = -Inf, upper_bound = +Inf) {
 
         stopifnot(is_scalar_character(name))
         stopifnot(is_scalar_logical(integer))
         stopifnot(is_scalar_logical(binary))
 
-        # if (integer && binary)
-        #     message("If binary = TRUE, you don't need to specify integer = TRUE")
-        if (binary)
-            integer <- TRUE
+        if (binary) {
+            integer <- FALSE
+            if (lower_bound != -Inf || upper_bound != +Inf)
+                warning("Ignoring bounds for binary variable ", name)
+            lower_bound <- 0
+            upper_bound <- 1
+        }
 
         if (...length() == 0L) {
             sets <- list(scalar = "")
@@ -41,18 +78,25 @@ easylp <- R6Class("easylp", public = list(
                 stop("All sets in ... must be named")
         }
 
-        # grid <- do.call(expand.grid, sets)
-        # x_name <- pmap(grid, paste, sep = "-")
         ind <- array(dim = lengths(sets), dimnames = sets)
-        ind[] <- 1:length(ind) + self$n_vars
+        ind[] <- 1:length(ind) + self$nvar
         len <- length(ind)
 
         selected <- logical(ind[len])
         selected[ind] <- TRUE
 
         add <- numeric(len)
-        coef <- cbind(matrix(0, nrow = len, ncol = self$n_vars),
+        coef <- cbind(matrix(0, nrow = len, ncol = self$nvar),
                       diag(len))
+
+        type <- if (integer)
+            "integer"
+        else if (binary)
+            "binary"
+        else
+            "real"
+
+        nams <- name_variable(name, sets)
 
         # Update other variables
         for (k in seq_along(self$variables)) {
@@ -68,30 +112,33 @@ easylp <- R6Class("easylp", public = list(
         }
 
         # Update constraint matrix
-        self$constraints$mat <- cbind(
-            self$constraints$mat,
-            matrix(0, nrow = nrow(self$constraints$mat), ncol = len)
+        self$constraint$mat <- cbind(
+            self$constraint$mat,
+            matrix(0, nrow = nrow(self$constraint$mat), ncol = len,
+                   dimnames = list(NULL, nams))
         )
 
         # Update objective function and solution
-        self$objective_fun <- c(self$objective_fun, numeric(len))
-        self$solution <- c(self$solution, numeric(len))
+        self$objective_fun <- c(self$objective_fun, numeric(len) |> setNames(nams))
+        self$solution <- c(self$solution, numeric(len) |> setNames(nams))
 
         # Create new variable
         x <- list(
             name = name,
             sets = sets,
             ind = ind,
+            type = type,
             integer = integer,
             binary = binary,
+            bound = c(Lower = lower_bound, Upper = upper_bound),
             selected = selected,
             coef = coef,
             add = add
         ) |> structure(class = "lp_var")
 
         self$variables <- append(self$variables, list(x) |> setNames(name))
-        self$n_vars <- self$n_vars + len
-        self
+        self$nvar <- self$nvar + len
+        invisible(self)
     },
     con = function(..., expr_list = list()) {
         envir <- as_environment(self$variables, parent = caller_env())
@@ -99,7 +146,10 @@ easylp <- R6Class("easylp", public = list(
         for (k in seq_along(dots)) {
             expr <- inside(dots[[k]])
             if (expr[[1L]] == quote(`for`)) {
-                return(self$con(expr_list = for_split(expr)))
+                split <- for_split(expr)
+                split <- name_for_split(split, name = names(dots)[k])
+                self$con(expr_list = split)
+                next
             }
             constraint <- eval(expr, envir)
             stopifnot(is_lp_con(constraint))
@@ -108,9 +158,9 @@ easylp <- R6Class("easylp", public = list(
                 next
             }
             constraint <- name_constraint(constraint, names(dots)[k])
-            self$constraints$mat <- rbind(self$constraints$mat, constraint$mat)
-            self$constraints$dir <- c(self$constraints$dir, constraint$dir)
-            self$constraints$rhs <- c(self$constraints$rhs, constraint$rhs)
+            self$constraint$mat <- rbind(self$constraint$mat, constraint$mat)
+            self$constraint$dir <- c(self$constraint$dir, unname(constraint$dir))
+            self$constraint$rhs <- c(self$constraint$rhs, unname(constraint$rhs))
         }
         invisible(self)
     },
@@ -122,42 +172,90 @@ easylp <- R6Class("easylp", public = list(
         self$direction <- "max"
         self$.obj(enexpr(objective))
     },
-    solve = function(...) {
+    solve = function() {
 
-        if (self$n_vars == 0L)
+        if (self$nvar == 0L)
             stop("Problem contains no variables.")
         if (all(self$objective_fun == 0))
             stop("Must specify objective function.")
 
-        integer <- logical(self$n_vars)
-        binary <- logical(self$n_vars)
+        prob <- make.lp(nrow = 0, ncol = self$nvar)
+        set.objfn(prob, c(self$objective_fun))
 
-        for (v in self$variables) {
-            if (v$integer)
-                integer[v$selected] <- TRUE
-            if (v$binary)
-                binary[v$selected] <- TRUE
+        for (x in self$variables) {
+            set.type(prob, columns = x$ind, type = x$type)
+            set.bounds(prob, columns = x$ind,
+                       lower = rep(x$bound[1L], length(x$ind)),
+                       upper = rep(x$bound[2L], length(x$ind)))
         }
 
-        self$lpsolve <- lpSolve::lp(
-            direction = self$direction,
-            objective.in = self$objective_fun,
-            const.mat = self$constraints$mat,
-            const.dir = self$constraints$dir,
-            const.rhs = self$constraints$rhs,
-            int.vec = which(integer),
-            binary.vec = which(binary),
-            ...
+        with(self$constraint, for (i in 1:nrow(mat)) {
+            d <- if (dir[i] == "==") "="  else dir[i]
+            add.constraint(prob, mat[i, ], d, rhs[i])
+        })
+
+        status <- solve(prob)
+        self$objective_value <- get.objective(prob) + self$objective_add
+        self$solution[] <- get.variables(prob)
+        self$status <- switch(
+            as.character(status),
+            "0" = "optimal",
+            "1" = "sub-optimal",
+            "2" = "unfeasable",
+            "3" = "unbounded",
+
+            "7" = "timeout",
+            "5" =,
+            "6" =,
+            "10" = "failure",
+
+            "unknown"
         )
 
-        self$objective_value <- self$lpsolve$objval + self$objective_add
-        self$solution <- self$lpsolve$solution
-        self$status <- if (self$lpsolve$status == 0)
-            "optimal"
-        else
-            "unfeasable/unlimited"
+        self$sensitivity$objective <- array(
+            dim = c(length(self$objective_fun), 2L),
+            dimnames = list(Variable = names(self$objective_fun),
+                            Bound = c("Upper", "Lower"))
+        )
+        rhs <- array(
+            dim = c(nrow(self$constraint$mat), 2L),
+            dimnames = list(Constraint = rownames(self$constraint$mat),
+                            Bound = c("Upper", "Lower"))
+        )
+        sens <- get.sensitivity.obj(prob)
+        self$sensitivity$objective[, "Lower"] <- large_to_infinity(sens$objfrom)
+        self$sensitivity$objective[, "Upper"] <- large_to_infinity(sens$objtill)
+        sens <- get.sensitivity.rhs(prob)
+        self$sensitivity$rhs[, "Lower"] <- large_to_infinity(sens$dualsfrom)
+        self$sensitivity$rhs[, "Upper"] <- large_to_infinity(sens$dualstill)
+
+        self$pointer <- prob
         self
     },
+
+    feasable = function(solution = self$solution, tol = 2e-8) {
+        stopifnot(nrow(self$constraint$mat) > 0L)
+        for (k in 1:nrow(self$constraint$mat)) {
+            lhs <- sum(solution * self$constraint$mat[k, ])
+            dir <- self$constraint$dir[k]
+            rhs <- self$constraint$rhs[k]
+
+            feasable_k <- compare_tol(lhs, rhs, dir, tol)
+            if (!feasable_k)
+                return(FALSE)
+        }
+        TRUE
+    },
+    check_feasable = function() {
+        if (self$feasable())
+            return(self)
+        message("Current solution has become unfeasable. Use $solve to find a new one.")
+        self$status <- "unsolved"
+        self$solution[] <- 0
+        self$objective_value <- NA_real_
+        self
+    },
+
     .obj = function(expr) {
         envir <- as_environment(self$variables, parent = caller_env(2))
         joint_var <- sum(eval(expr, envir))
@@ -189,7 +287,7 @@ easylp <- R6Class("easylp", public = list(
         if (add != 0)
             cat("", ifelse(add > 0, "+", "-"), abs(add), "=", val)
 
-        cat("\nSolution:\n")
+        cat("\n\nSolution:\n")
         print(self$pretty_solution())
     }
 ))

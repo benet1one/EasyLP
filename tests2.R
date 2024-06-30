@@ -13,14 +13,14 @@ names(demand) <- town
 
 # Problem
 mylp <- easylp$new()
-mylp$var("x", provider = provider, town = town)
-mylp$var("y", town = town, integer = TRUE)
-mylp$con(x_bound = x >= 0,
-         y_bound = y <= 5.2)
-mylp$var("z", binary = TRUE)
+mylp$var(x <= 19.5, provider = provider, town = town)
+mylp$var(integer(y) >= 1.8, town = town)
+mylp$con(y <= sum(x))
+mylp$var(binary(z))
 
 mylp$min(sum(x) - sum(y) - z - 2)
 mylp$con(for (t in town) sum(x[, t]) >= demand[t])
-# for (t in town) {
-#     mylp$con(sum(x[, t]) >= demand[t])
-# }
+
+mylp$solve()
+mylp$feasable()
+

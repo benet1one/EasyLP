@@ -15,8 +15,16 @@ print.lp_var <- function(x) {
         cat(" <integer>")
     if (length(x$ind) > 1L)
         cat("\nWith sets: [", paste(names(x$sets), collapse = ", "), "]")
-    if (!is.null(x$bound))
-        cat("\nBounded: .x", x$bound$dir, x$bound$rhs)
+
+    if (all(x$bound != c(-Inf, +Inf))) {
+        cat("\n")
+        cat(x$bound[1L], "<=", x$name, "<=", x$bound[2L])
+
+    } else if (x$bound[1L] != -Inf) {
+        cat("\n", x$name, " >= ", x$bound[1L], sep = "")
+    } else if (x$bound[2L] != +Inf) {
+        cat("\n", x$name, " <= ", x$bound[2L], sep = "")
+    }
 }
 #' @export
 length.lp_var <- function(x) length(x$ind)
@@ -35,7 +43,7 @@ dim.lp_var <- function(x) dim(x$ind)
     x$selected[x$ind] <- TRUE
 
     rows <- is.element(old_ind, x$ind)
-    x$coef <- x$coef[rows, ]
+    x$coef <- x$coef[rows, , drop = FALSE]
     x$add  <- x$add[rows]
     return(x)
 }
