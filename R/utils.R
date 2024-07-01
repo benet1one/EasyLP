@@ -241,6 +241,8 @@ parse_variable_definition <- function(expr) {
 }
 
 name_variable <- function(name, sets) {
+    if (length(sets) == 0L)
+        return(name)
     grid <- do.call(expand.grid, sets)
     index <- .mapply(dots = grid, FUN = paste, MoreArgs = list(sep = ", "))
     paste0(name, "[", index, "]")

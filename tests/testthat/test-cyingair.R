@@ -31,5 +31,5 @@ cat("Benefici =", lp$objective_value,
     "\nDespesa  =", despesa_total)
 
 test_that("correct solution", {
-    expect_equal(unname(lp$solution), c(0, 1, 1, 1, 0, 1, 1, 33))
+    expect_equal(unname(lp$solution), c(0, 1, 1, 1, 0, 2, 3, 49))
 })
