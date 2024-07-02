@@ -6,7 +6,7 @@ pressupost <- 2000
 
 lp <- easylp$new()
 lp$var("quin", Avio, binary = TRUE)
-lp$var("x", Avio, integer = TRUE, lower_bound = 0)
+lp$var("x", Avio, integer = TRUE, lower = 0)
 
 lp$max(sum(x * benefici))
 lp$con(
@@ -28,7 +28,7 @@ despesa_total <- sum(sol$x * preu)
 
 print(lp)
 cat("Benefici =", lp$objective_value,
-    "\nDespesa  =", despesa_total)
+  "\nDespesa  =", despesa_total)
 
 test_that("correct solution", {
     expect_equal(unname(lp$solution), c(0, 1, 1, 1, 0, 2, 3, 49))

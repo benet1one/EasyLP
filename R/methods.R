@@ -178,15 +178,3 @@ sum.lp_var <- function(x, ..., na.rm = FALSE) {
     x$add <- sum(x$add)
     return(x)
 }
-
-# #' @export
-# print.lp_con <- function(x) {
-#
-#     cat("Linear Programming Constraint", if (length(x) > 1) "s", ":", sep = "")
-#     deparsed <- map_chr(x, deparse_constraint)
-#
-#     for (k in seq_along(deparsed)) {
-#         cat("\n  ", deparsed[k], sep = "")
-#     }
-# }
-

@@ -13,6 +13,6 @@ lp$con(
     r3 = for(b in B) x[, b, 2] >= 1
 )
 
-# test_that("constraints_good", {
-#   expect_identical(lp$constraint, expected_constraints)
-# })
+test_that("can't divide by variable", {
+    expect_error(lp$con(2/x[1, 1, 1] <= 0))
+})

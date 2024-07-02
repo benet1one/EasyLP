@@ -1,7 +1,7 @@
 
-require(R6)
-require(lpSolveAPI)
-require(rlang)
+library(R6)
+library(lpSolveAPI)
+library(rlang)
 
 #' Easy Linear Problem
 #' @description
@@ -17,12 +17,16 @@ require(rlang)
 #' @field direction Character indicating whether to minimize 'min' or maximize
 #' 'max' the objective function.
 #' @field status Character indicating the status of the problem. Initialized as
-#' 'unsolved'. Changes when solving the problem using \link{easylp$solve()}.
+#' 'unsolved'. Changes when solving the problem using \code{easylp$solve()}.
 #' @field objective_value Value of the objective function with the optimal solution.
 #' @field solution Vector containing the optimal values for the variables.
 #' See \link{easylp$pretty_solution()} for a better representation of the solution.
 #' @field pointer Pointer to an lpSolveAPI object.
 #' See more at \url{https://lpsolve.sourceforge.net/5.5/}.
+#'
+#' @import R6
+#' @import lpSolveAPI
+#' @import rlang
 easylp <- R6Class("easylp", public = list(
 
     variables = list(),
@@ -45,28 +49,45 @@ easylp <- R6Class("easylp", public = list(
     ),
     pointer = NULL,
 
+    #' @description
+    #' Define a variable.
+    #' @param name Character scalar, name of the variable. Will be used in the
+    #' constraints and objective function.
+    #' @param ... Optional sets used to index the variable. Can be named.
+    #' Supports \code{!!!sets} for using a list of sets. See examples.
+    #' @param integer Logical. Is the variable an integer?
+    #' @param binary Logical. Is the variable binary/boolean/logical?
+    #' @param lower Numeric scalar. Lower bound for the variable.
+    #' @param upper Numeric scalar. Upper bound for the variable.
+    #' @export
+    #' @examples
+    #' lp <- easylp$new()
+    #' lp$var("x", Origin = letters[1:3], Destination = letters[1:3], lower = 0)
+    #' my_sets <- list(Origin = letters[1:3], Destination = letters[1:3])
+    #' lp$var("y", !!!my_sets, lower = 0)
+    #' lp$variables
     var = function(name, ..., integer = FALSE, binary = FALSE,
-                   lower_bound = -Inf, upper_bound = +Inf) {
+                   lower = -Inf, upper = +Inf) {
 
         stopifnot(is_scalar_character(name))
         stopifnot(is_scalar_logical(integer))
         stopifnot(is_scalar_logical(binary))
+        stopifnot(length(lower) == 1L)
+        stopifnot(length(upper) == 1L)
+        stopifnot(lower < upper)
 
         if (binary) {
             integer <- FALSE
-            if (lower_bound != -Inf || upper_bound != +Inf)
+            if (lower != -Inf || upper != +Inf)
                 warning("Ignoring bounds for binary variable ", name)
-            lower_bound <- 0
-            upper_bound <- 1
+            lower <- 0
+            upper <- 1
         }
 
-        if (...length() == 0L) {
+        if (...length() == 0L)
             sets <- list(scalar = "")
-        } else {
-            sets <- dots_list(...)
-            if (any(names(sets) == ""))
-                stop("All sets in ... must be named")
-        }
+        else
+            sets <- dots_list(..., .named = TRUE)
 
         ind <- array(dim = lengths(sets), dimnames = sets)
         ind[] <- 1:length(ind) + self$nvar
@@ -113,7 +134,7 @@ easylp <- R6Class("easylp", public = list(
 
         # Update solution
         self$solution <- c(self$solution, numeric(len) |> setNames(nams))
-        if (lower_bound > 0 || upper_bound < 0)
+        if (lower > 0 || upper < 0)
             self$reset_solution()
 
         # Create new variable
@@ -124,7 +145,7 @@ easylp <- R6Class("easylp", public = list(
             type = type,
             integer = integer,
             binary = binary,
-            bound = c(Lower = lower_bound, Upper = upper_bound),
+            bound = c(Lower = lower, Upper = upper),
             selected = selected,
             coef = coef,
             add = add
@@ -134,15 +155,15 @@ easylp <- R6Class("easylp", public = list(
         self$nvar <- self$nvar + len
         invisible(self)
     },
-    con = function(..., expr_list = list()) {
+    con = function(..., expr_list = list(), .fs_env = parent.frame()) {
         envir <- as_environment(self$variables, parent = caller_env())
         dots <- c(enexprs(...), expr_list)
         for (k in seq_along(dots)) {
             expr <- inside(dots[[k]])
             if (expr[[1L]] == quote(`for`)) {
-                split <- for_split(expr)
+                split <- for_split(expr, envir = .fs_env)
                 split <- name_for_split(split, name = names(dots)[k])
-                self$con(expr_list = split)
+                self$con(expr_list = split, .fs_env = .fs_env)
                 next
             }
             constraint <- eval(expr, envir)
@@ -166,20 +187,22 @@ easylp <- R6Class("easylp", public = list(
         self$direction <- "max"
         self$.obj(enexpr(objective))
     },
-    solve = function() {
+    #' @description
+    #' Find an optimal solution.
+    #' @param ... Arguments passed on to \code{lpSolveAPI::lp.control()}.
+    #' See \code{\link[lpSolveAPI]{lp.control.options}}
+    solve = function(...) {
 
         if (self$nvar == 0L)
             stop("Problem contains no variables.")
         if (all(self$objective_fun == 0))
             stop("Must specify objective function.")
+        if (!is.element(self$direction, c("min", "max")))
+            stop("Direction must be either 'min' or 'max'.")
 
         prob <- make.lp(nrow = 0, ncol = self$nvar)
-
-        if (self$direction == "min")
-            set.objfn(prob, +c(self$objective_fun))
-        else if (self$direction == "max")
-            set.objfn(prob, -c(self$objective_fun))
-        else stop("Direction must be either 'min' or 'max'.")
+        set.objfn(prob, self$objective_fun)
+        lp.control(prob, sense = self$direction, ...)
 
         for (x in self$variables) {
             set.type(prob, columns = x$ind, type = x$type)
@@ -195,7 +218,6 @@ easylp <- R6Class("easylp", public = list(
 
         status <- solve(prob)
         objval <- get.objective(prob) |> large_to_infinity()
-        if (self$direction == "max") objval <- -objval
         self$objective_value <- objval + self$objective_add
         self$solution[] <- get.variables(prob) |> large_to_infinity()
         self$status <- switch(
@@ -217,7 +239,18 @@ easylp <- R6Class("easylp", public = list(
         )
 
         self$pointer <- prob
-        self
+        return(self)
+    },
+    pretty_solution = function() {
+        self$check_solved()
+        stopifnot(self$status == "optimal")
+        lapply(self$variables, \(x) {
+            if (length(x$ind) == 1L)
+                return(self$solution[x$ind] |> unname())
+            sol <- x$ind
+            sol[] <- self$solution[x$ind]
+            sol
+        })
     },
 
     sensitivity_objective = function() {
@@ -301,17 +334,6 @@ easylp <- R6Class("easylp", public = list(
         eval(expr, envir)
     },
 
-    pretty_solution = function() {
-        self$check_solved()
-        stopifnot(self$status == "optimal")
-        lapply(self$variables, \(x) {
-            if (length(x$ind) == 1L)
-                return(self$solution[x$ind] |> unname())
-            sol <- x$ind
-            sol[] <- self$solution[x$ind]
-            sol
-        })
-    },
     print = function() {
         cat("Easy Linear Problem \nStatus:", self$status)
         if (self$status != "optimal")

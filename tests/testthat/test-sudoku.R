@@ -6,13 +6,6 @@ sudoku <- matrix(ncol = 4, c(
     0, 0, 0, 3
 ))
 
-bin_sudoku <- array(FALSE, dim = rep(4, 3L))
-for (i in 1:4) for (j in 1:4) {
-    n <- sudoku[i, j]
-    if (n == 0) next
-    bin_sudoku[i, j, n] <- TRUE
-}
-
 lp <- easylp$new()
 sets <- rep(list(1:4), 3L)
 names(sets) <- c("row", "col", "num")
@@ -29,12 +22,11 @@ lp$con(
 )
 
 for(i in 1:4) for(j in 1:4) for(n in 1:4) {
-    if (!bin_sudoku[i, j, n])
-        next
-    lp$con(x[i, j, n] == 1L)
+    n <- sudoku[i, j]
+    if (n != 0) lp$con(x[i, j, n] == 1L)
 }
 
-lp$solve()
+lp$solve(break.at.first = TRUE)
 
 sol <- lp$pretty_solution() $ x
 for (n in 2:4) sol[, , n] <- sol[, , n] * n

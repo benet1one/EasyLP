@@ -7,6 +7,18 @@
 Object containing all the information about a linear problem, as well
 as functions to define, modify, and solve it.
 }
+\examples{
+
+## ------------------------------------------------
+## Method `easylp$var`
+## ------------------------------------------------
+
+lp <- easylp$new()
+lp$var("x", Origin = letters[1:3], Destination = letters[1:3], lower = 0)
+my_sets <- list(Origin = letters[1:3], Destination = letters[1:3])
+lp$var("y", !!!my_sets, lower = 0)
+lp$variables
+}
 \section{Public fields}{
 \if{html}{\out{<div class="r6-fields">}}
 \describe{
@@ -25,11 +37,12 @@ a vector of directions 'dir', and a vector of right-hand-side values 'rhs'.}
 'max' the objective function.}
 
 \item{\code{status}}{Character indicating the status of the problem. Initialized as
-'unsolved'. Changes when solving the problem using easylp$solve().}
+'unsolved'. Changes when solving the problem using \code{easylp$solve()}.}
 
 \item{\code{objective_value}}{Value of the objective function with the optimal solution.}
 
-\item{\code{solution}}{Optimal values of the variables.}
+\item{\code{solution}}{Vector containing the optimal values for the variables.
+See \link{easylp$pretty_solution()} for a better representation of the solution.}
 
 \item{\code{pointer}}{Pointer to an lpSolveAPI object.
 See more at \url{https://lpsolve.sourceforge.net/5.5/}.}
@@ -39,39 +52,71 @@ See more at \url{https://lpsolve.sourceforge.net/5.5/}.}
 \section{Methods}{
 \subsection{Public methods}{
 \itemize{
-\item \href{#method-easylp-var_}{\code{easylp$var_()}}
 \item \href{#method-easylp-var}{\code{easylp$var()}}
 \item \href{#method-easylp-con}{\code{easylp$con()}}
 \item \href{#method-easylp-min}{\code{easylp$min()}}
 \item \href{#method-easylp-max}{\code{easylp$max()}}
-\item \href{#method-easylp-solve_}{\code{easylp$solve_()}}
 \item \href{#method-easylp-solve}{\code{easylp$solve()}}
+\item \href{#method-easylp-pretty_solution}{\code{easylp$pretty_solution()}}
+\item \href{#method-easylp-sensitivity_objective}{\code{easylp$sensitivity_objective()}}
+\item \href{#method-easylp-sensitivity_rhs}{\code{easylp$sensitivity_rhs()}}
 \item \href{#method-easylp-feasable}{\code{easylp$feasable()}}
 \item \href{#method-easylp-check_feasable}{\code{easylp$check_feasable()}}
-\item \href{#method-easylp-optimal}{\code{easylp$optimal()}}
 \item \href{#method-easylp-check_optimal}{\code{easylp$check_optimal()}}
+\item \href{#method-easylp-check_solved}{\code{easylp$check_solved()}}
+\item \href{#method-easylp-any_integer}{\code{easylp$any_integer()}}
+\item \href{#method-easylp-reset_solution}{\code{easylp$reset_solution()}}
 \item \href{#method-easylp-.obj}{\code{easylp$.obj()}}
 \item \href{#method-easylp-.test}{\code{easylp$.test()}}
-\item \href{#method-easylp-pretty_solution}{\code{easylp$pretty_solution()}}
 \item \href{#method-easylp-print}{\code{easylp$print()}}
 \item \href{#method-easylp-clone}{\code{easylp$clone()}}
 }
 }
 \if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-easylp-var_"></a>}}
-\if{latex}{\out{\hypertarget{method-easylp-var_}{}}}
-\subsection{Method \code{var_()}}{
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{easylp$var_(name, ..., integer = FALSE, binary = FALSE)}\if{html}{\out{</div>}}
-}
-
-}
-\if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-easylp-var"></a>}}
 \if{latex}{\out{\hypertarget{method-easylp-var}{}}}
 \subsection{Method \code{var()}}{
+Define a variable.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{easylp$var(definition, ...)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{easylp$var(
+  name,
+  ...,
+  integer = FALSE,
+  binary = FALSE,
+  lower = -Inf,
+  upper = +Inf
+)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{name}}{Character scalar, name of the variable. Will be used in the
+constraints and objective function.}
+
+\item{\code{...}}{Optional sets used to index the variable. Can be named.
+Supports \code{!!!sets} for using a list of sets. See examples.}
+
+\item{\code{integer}}{Logical. Is the variable an integer?}
+
+\item{\code{binary}}{Logical. Is the variable binary/boolean/logical?}
+
+\item{\code{lower}}{Numeric scalar. Lower bound for the variable.}
+
+\item{\code{upper}}{Numeric scalar. Upper bound for the variable.}
+}
+\if{html}{\out{</div>}}
+}
+\subsection{Examples}{
+\if{html}{\out{<div class="r example copy">}}
+\preformatted{lp <- easylp$new()
+lp$var("x", Origin = letters[1:3], Destination = letters[1:3], lower = 0)
+my_sets <- list(Origin = letters[1:3], Destination = letters[1:3])
+lp$var("y", !!!my_sets, lower = 0)
+lp$variables
+}
+\if{html}{\out{</div>}}
+
 }
 
 }
@@ -80,7 +125,7 @@ See more at \url{https://lpsolve.sourceforge.net/5.5/}.}
 \if{latex}{\out{\hypertarget{method-easylp-con}{}}}
 \subsection{Method \code{con()}}{
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{easylp$con(..., expr_list = list())}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{easylp$con(..., expr_list = list(), .fs_env = parent.frame())}\if{html}{\out{</div>}}
 }
 
 }
@@ -103,20 +148,47 @@ See more at \url{https://lpsolve.sourceforge.net/5.5/}.}
 
 }
 \if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-easylp-solve_"></a>}}
-\if{latex}{\out{\hypertarget{method-easylp-solve_}{}}}
-\subsection{Method \code{solve_()}}{
+\if{html}{\out{<a id="method-easylp-solve"></a>}}
+\if{latex}{\out{\hypertarget{method-easylp-solve}{}}}
+\subsection{Method \code{solve()}}{
+Find an optimal solution.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{easylp$solve_(...)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{easylp$solve(...)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{...}}{Arguments passed on to \code{lpSolveAPI::lp.control()}.
+See \code{\link[lpSolveAPI]{lp.control.options}}}
+}
+\if{html}{\out{</div>}}
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-easylp-pretty_solution"></a>}}
+\if{latex}{\out{\hypertarget{method-easylp-pretty_solution}{}}}
+\subsection{Method \code{pretty_solution()}}{
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{easylp$pretty_solution()}\if{html}{\out{</div>}}
 }
 
 }
 \if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-easylp-solve"></a>}}
-\if{latex}{\out{\hypertarget{method-easylp-solve}{}}}
-\subsection{Method \code{solve()}}{
+\if{html}{\out{<a id="method-easylp-sensitivity_objective"></a>}}
+\if{latex}{\out{\hypertarget{method-easylp-sensitivity_objective}{}}}
+\subsection{Method \code{sensitivity_objective()}}{
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{easylp$solve()}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{easylp$sensitivity_objective()}\if{html}{\out{</div>}}
+}
+
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-easylp-sensitivity_rhs"></a>}}
+\if{latex}{\out{\hypertarget{method-easylp-sensitivity_rhs}{}}}
+\subsection{Method \code{sensitivity_rhs()}}{
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{easylp$sensitivity_rhs()}\if{html}{\out{</div>}}
 }
 
 }
@@ -139,20 +211,38 @@ See more at \url{https://lpsolve.sourceforge.net/5.5/}.}
 
 }
 \if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-easylp-optimal"></a>}}
-\if{latex}{\out{\hypertarget{method-easylp-optimal}{}}}
-\subsection{Method \code{optimal()}}{
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{easylp$optimal(solution, base, tol = 2e-08)}\if{html}{\out{</div>}}
-}
-
-}
-\if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-easylp-check_optimal"></a>}}
 \if{latex}{\out{\hypertarget{method-easylp-check_optimal}{}}}
 \subsection{Method \code{check_optimal()}}{
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{easylp$check_optimal(solution = self$solution, tol = 2e-08, max_iter = 50L)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{easylp$check_optimal()}\if{html}{\out{</div>}}
+}
+
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-easylp-check_solved"></a>}}
+\if{latex}{\out{\hypertarget{method-easylp-check_solved}{}}}
+\subsection{Method \code{check_solved()}}{
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{easylp$check_solved()}\if{html}{\out{</div>}}
+}
+
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-easylp-any_integer"></a>}}
+\if{latex}{\out{\hypertarget{method-easylp-any_integer}{}}}
+\subsection{Method \code{any_integer()}}{
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{easylp$any_integer()}\if{html}{\out{</div>}}
+}
+
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-easylp-reset_solution"></a>}}
+\if{latex}{\out{\hypertarget{method-easylp-reset_solution}{}}}
+\subsection{Method \code{reset_solution()}}{
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{easylp$reset_solution()}\if{html}{\out{</div>}}
 }
 
 }
@@ -171,15 +261,6 @@ See more at \url{https://lpsolve.sourceforge.net/5.5/}.}
 \subsection{Method \code{.test()}}{
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{easylp$.test(expr)}\if{html}{\out{</div>}}
-}
-
-}
-\if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-easylp-pretty_solution"></a>}}
-\if{latex}{\out{\hypertarget{method-easylp-pretty_solution}{}}}
-\subsection{Method \code{pretty_solution()}}{
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{easylp$pretty_solution()}\if{html}{\out{</div>}}
 }
 
 }
