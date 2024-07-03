@@ -155,15 +155,24 @@ easylp <- R6Class("easylp", public = list(
         self$nvar <- self$nvar + len
         invisible(self)
     },
-    con = function(..., expr_list = list(), .fs_env = parent.frame()) {
-        envir <- as_environment(self$variables, parent = caller_env())
+    #' @description
+    #' Define constraints.
+    #'
+    #' @param ... Constraints. See \code{vignette("constraints")}. Can be named.
+    #' @param expr_list Optionally, a list of expressions representing constraints.
+    #' @param .env Environment where non-variables should be evaluated.
+    #'
+    #' @export
+    # #' @example inst/examples/cons.R
+    con = function(..., expr_list = list(), .env = caller_env()) {
+        envir <- as_environment(self$variables, parent = .env)
         dots <- c(enexprs(...), expr_list)
         for (k in seq_along(dots)) {
             expr <- inside(dots[[k]])
             if (expr[[1L]] == quote(`for`)) {
-                split <- for_split(expr, envir = .fs_env)
+                split <- for_split(expr, envir = .env)
                 split <- name_for_split(split, name = names(dots)[k])
-                self$con(expr_list = split, .fs_env = .fs_env)
+                self$con(expr_list = split, .env = .env)
                 next
             }
             constraint <- eval(expr, envir)
@@ -179,10 +188,18 @@ easylp <- R6Class("easylp", public = list(
         }
         invisible(self)
     },
+    #' @description
+    #' Define objective function for a minimization problem.
+    #' Uses the same syntax as constraints.
+    #' Must be a single value, so use \code{sum()} when needed.
     min = function(objective) {
         self$direction <- "min"
         self$.obj(enexpr(objective))
     },
+    #' @description
+    #' Define objective function for a maximization problem.
+    #' Uses the same syntax as constraints.
+    #' Must be a single value, so use \code{sum()} when needed.
     max = function(objective) {
         self$direction <- "max"
         self$.obj(enexpr(objective))
@@ -241,6 +258,9 @@ easylp <- R6Class("easylp", public = list(
         self$pointer <- prob
         return(self)
     },
+    #' @description
+    #' Display the solution using an array for each defined variable.
+    #' @returns A named list with the values of each variable.
     pretty_solution = function() {
         self$check_solved()
         stopifnot(self$status == "optimal")
@@ -253,34 +273,47 @@ easylp <- R6Class("easylp", public = list(
         })
     },
 
+    #' @description
+    #' Compute sensitivity for objective function coefficients.
+    #' @returns Array, where rows are variables, first column is the lower bound,
+    #' second column is the current value, and third column is the upper bound.
     sensitivity_objective = function() {
         self$check_solved()
         if (self$any_integer())
             stop("Sensitivity unavailable for problems with integer/binary variables")
         objective <- array(
-            dim = c(length(self$objective_fun), 2L),
+            dim = c(length(self$objective_fun), 3L),
             dimnames = list(Variable = names(self$solution),
-                            Bound = c("Upper", "Lower"))
+                            Bound = c("Upper", "Current", "Lower"))
         )
         sens <- get.sensitivity.obj(self$pointer)
         objective[, "Lower"] <- large_to_infinity(sens$objfrom)
         objective[, "Upper"] <- large_to_infinity(sens$objtill)
+        objective[, "Current"] <- self$objective_fun
         return(objective)
     },
+    #' @description
+    #' Compute sensitivity for constraint right-hand-side coefficients.
+    #' @returns Array, where rows are variables, first column is the lower bound,
+    #' second column is the current value, and third column is the upper bound.
+    #' @details For technical reasons, this function can not be used if there are
+    #' integer or binary variables.
     sensitivity_rhs = function() {
         self$check_solved()
         if (self$any_integer())
             stop("Sensitivity unavailable for problems with integer/binary variables")
         rhs <- array(
-            dim = c(nrow(self$constraint$mat), 2L),
+            dim = c(nrow(self$constraint$mat), 3L),
             dimnames = list(Constraint = rownames(self$constraint$mat),
-                            Bound = c("Upper", "Lower"))
+                            Bound = c("Upper", "Current", "Lower"))
         )
         sens <- get.sensitivity.rhs(self$pointer)
         rhs[, "Lower"] <- large_to_infinity(sens$dualsfrom)
         rhs[, "Upper"] <- large_to_infinity(sens$dualstill)
+        rhs[, "Current"] <- self$constraint$rhs
         return(rhs)
     },
+
     feasable = function(solution = self$solution, tol = 2e-8) {
         stopifnot(nrow(self$constraint$mat) > 0L)
         for (k in 1:nrow(self$constraint$mat)) {
@@ -301,9 +334,9 @@ easylp <- R6Class("easylp", public = list(
         self$reset_solution()
         return(self)
     },
-    check_optimal = function() {
-        self$check_solved()
-    },
+    # check_optimal = function() {
+    #     self$check_solved()
+    # },
     check_solved = function() {
         if (self$status == "unsolved")
             stop("Linear Problem has not been solved. Use easylp$solve().")
@@ -328,9 +361,14 @@ easylp <- R6Class("easylp", public = list(
         self$reset_solution()
         invisible(self)
     },
-    .test = function(expr) {
+    test = function(expr) {
         expr <- enexpr(expr)
         envir <- as_environment(self$variables, parent = caller_env())
+        if (expr[[1L]] == quote(`for`)) {
+            split <- for_split(expr, envir = .env)
+            split <- name_for_split(split, name = names(dots)[k])
+            return(self$test(!!expr, .env = .env))
+        }
         eval(expr, envir)
     },
 

@@ -8,23 +8,26 @@ is_lp_con <- function(x) {
 
 #' @export
 print.lp_var <- function(x) {
+
     cat("Linear Programming Variable '", x$name, "'", sep = "")
+
     if (x$binary)
         cat(" <binary>")
     else if (x$integer)
         cat(" <integer>")
+
     if (length(x$ind) > 1L)
         cat("\nWith sets: [", paste(names(x$sets), collapse = ", "), "]")
 
     if (all(x$bound != c(-Inf, +Inf))) {
         cat("\n")
         cat(x$bound[1L], "<=", x$name, "<=", x$bound[2L])
-
     } else if (x$bound[1L] != -Inf) {
         cat("\n", x$name, " >= ", x$bound[1L], sep = "")
     } else if (x$bound[2L] != +Inf) {
         cat("\n", x$name, " <= ", x$bound[2L], sep = "")
     }
+    cat("\n")
 }
 #' @export
 length.lp_var <- function(x) length(x$ind)
@@ -48,12 +51,9 @@ dim.lp_var <- function(x) dim(x$ind)
     return(x)
 }
 
-# questioning
 horizontal_multiply <- function(x, mult) {
-
     if (length(mult) == 1L)
         mult <- rep(mult, nrow(x))
-
     stopifnot(nrow(x) == length(mult))
 
     for (i in seq_len(nrow(x)))
@@ -77,13 +77,24 @@ Ops.lp_var <- function(e1, e2) {
     logic <- c("&", "|", "!")
     compare <- c("==", "!=", "<", "<=", ">=", ">")
 
-    if (is.element(.Generic, logic))
+    if (is.element(.Generic, logic)) {
         Logic_lp_var(e1, maybe_missing(e2), .Generic)
-    else if (is.element(.Generic, arith))
-        Arith_lp_var(e1, maybe_missing(e2), .Generic)
-    else if (is.element(.Generic, compare))
-        Compare_lp_var(e1, maybe_missing(e2), .Generic)
-    else stop("huh?")
+
+    } else if (is.element(.Generic, arith)) {
+        x <- Arith_lp_var(e1, maybe_missing(e2), .Generic)
+        check_na <- c(x$coef, x$add, x$selected)
+        if (anyNA(check_na)) {
+            e1 <- enexpr(e1) |> format()
+            e2 <- enexpr(e2) |> format()
+            stop("Operation '", e1, " ", .Generic, " ", e2,
+                 "' resulted in NA values")
+        }
+        return(x)
+
+    } else if (is.element(.Generic, compare)) {
+        Compare_lp_var(e1, e2, .Generic)
+
+    } else stop("huh?")
 }
 Logic_lp_var <- function(e1, e2, .Generic) {
     if (.Generic != "!")
@@ -173,8 +184,14 @@ Compare_lp_var <- function(e1, e2, .Generic) {
 }
 #' @export
 sum.lp_var <- function(x, ..., na.rm = FALSE) {
+    dots <- dots_list(...)
+    if (length(dots) != 0L) {
+        x_summed <- sum(x)
+        dots_summed <- lapply(dots, sum)
+        return(Reduce(`+`, dots_summed, x_summed))
+    }
     check_dots_empty(error = "Function 'sum' only supports one variable.")
-    x$coef <- matrix(colSums(x$coef), nrow = 1L)
-    x$add <- sum(x$add)
+    x$coef <- matrix(colSums(x$coef, na.rm = na.rm), nrow = 1L)
+    x$add <- sum(x$add, na.rm = na.rm)
     return(x)
 }

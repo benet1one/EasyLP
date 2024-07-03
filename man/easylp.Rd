@@ -3,6 +3,15 @@
 \name{easylp}
 \alias{easylp}
 \title{Easy Linear Problem}
+\value{
+A named list with the values of each variable.
+
+Array, where rows are variables, first column is the lower bound,
+second column is the current value, and third column is the upper bound.
+
+Array, where rows are variables, first column is the lower bound,
+second column is the current value, and third column is the upper bound.
+}
 \description{
 Object containing all the information about a linear problem, as well
 as functions to define, modify, and solve it.
@@ -62,12 +71,11 @@ See more at \url{https://lpsolve.sourceforge.net/5.5/}.}
 \item \href{#method-easylp-sensitivity_rhs}{\code{easylp$sensitivity_rhs()}}
 \item \href{#method-easylp-feasable}{\code{easylp$feasable()}}
 \item \href{#method-easylp-check_feasable}{\code{easylp$check_feasable()}}
-\item \href{#method-easylp-check_optimal}{\code{easylp$check_optimal()}}
 \item \href{#method-easylp-check_solved}{\code{easylp$check_solved()}}
 \item \href{#method-easylp-any_integer}{\code{easylp$any_integer()}}
 \item \href{#method-easylp-reset_solution}{\code{easylp$reset_solution()}}
 \item \href{#method-easylp-.obj}{\code{easylp$.obj()}}
-\item \href{#method-easylp-.test}{\code{easylp$.test()}}
+\item \href{#method-easylp-test}{\code{easylp$test()}}
 \item \href{#method-easylp-print}{\code{easylp$print()}}
 \item \href{#method-easylp-clone}{\code{easylp$clone()}}
 }
@@ -124,15 +132,30 @@ lp$variables
 \if{html}{\out{<a id="method-easylp-con"></a>}}
 \if{latex}{\out{\hypertarget{method-easylp-con}{}}}
 \subsection{Method \code{con()}}{
+Define constraints.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{easylp$con(..., expr_list = list(), .fs_env = parent.frame())}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{easylp$con(..., expr_list = list(), .env = caller_env())}\if{html}{\out{</div>}}
 }
 
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{...}}{Constraints. See \code{vignette("constraints")}. Can be named.}
+
+\item{\code{expr_list}}{Optionally, a list of expressions representing constraints.}
+
+\item{\code{.env}}{Environment where non-variables should be evaluated.}
+}
+\if{html}{\out{</div>}}
+}
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-easylp-min"></a>}}
 \if{latex}{\out{\hypertarget{method-easylp-min}{}}}
 \subsection{Method \code{min()}}{
+Define objective function for a minimization problem.
+Uses the same syntax as constraints.
+Must be a single value, so use \code{sum()} when needed.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{easylp$min(objective)}\if{html}{\out{</div>}}
 }
@@ -142,6 +165,9 @@ lp$variables
 \if{html}{\out{<a id="method-easylp-max"></a>}}
 \if{latex}{\out{\hypertarget{method-easylp-max}{}}}
 \subsection{Method \code{max()}}{
+Define objective function for a maximization problem.
+Uses the same syntax as constraints.
+Must be a single value, so use \code{sum()} when needed.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{easylp$max(objective)}\if{html}{\out{</div>}}
 }
@@ -169,6 +195,7 @@ See \code{\link[lpSolveAPI]{lp.control.options}}}
 \if{html}{\out{<a id="method-easylp-pretty_solution"></a>}}
 \if{latex}{\out{\hypertarget{method-easylp-pretty_solution}{}}}
 \subsection{Method \code{pretty_solution()}}{
+Display the solution using an array for each defined variable.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{easylp$pretty_solution()}\if{html}{\out{</div>}}
 }
@@ -178,6 +205,7 @@ See \code{\link[lpSolveAPI]{lp.control.options}}}
 \if{html}{\out{<a id="method-easylp-sensitivity_objective"></a>}}
 \if{latex}{\out{\hypertarget{method-easylp-sensitivity_objective}{}}}
 \subsection{Method \code{sensitivity_objective()}}{
+Compute sensitivity for objective function coefficients.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{easylp$sensitivity_objective()}\if{html}{\out{</div>}}
 }
@@ -187,8 +215,14 @@ See \code{\link[lpSolveAPI]{lp.control.options}}}
 \if{html}{\out{<a id="method-easylp-sensitivity_rhs"></a>}}
 \if{latex}{\out{\hypertarget{method-easylp-sensitivity_rhs}{}}}
 \subsection{Method \code{sensitivity_rhs()}}{
+Compute sensitivity for constraint right-hand-side coefficients.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{easylp$sensitivity_rhs()}\if{html}{\out{</div>}}
+}
+
+\subsection{Details}{
+For technical reasons, this function can not be used if there are
+integer or binary variables.
 }
 
 }
@@ -207,15 +241,6 @@ See \code{\link[lpSolveAPI]{lp.control.options}}}
 \subsection{Method \code{check_feasable()}}{
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{easylp$check_feasable()}\if{html}{\out{</div>}}
-}
-
-}
-\if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-easylp-check_optimal"></a>}}
-\if{latex}{\out{\hypertarget{method-easylp-check_optimal}{}}}
-\subsection{Method \code{check_optimal()}}{
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{easylp$check_optimal()}\if{html}{\out{</div>}}
 }
 
 }
@@ -256,11 +281,11 @@ See \code{\link[lpSolveAPI]{lp.control.options}}}
 
 }
 \if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-easylp-.test"></a>}}
-\if{latex}{\out{\hypertarget{method-easylp-.test}{}}}
-\subsection{Method \code{.test()}}{
+\if{html}{\out{<a id="method-easylp-test"></a>}}
+\if{latex}{\out{\hypertarget{method-easylp-test}{}}}
+\subsection{Method \code{test()}}{
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{easylp$.test(expr)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{easylp$test(expr)}\if{html}{\out{</div>}}
 }
 
 }
