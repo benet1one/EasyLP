@@ -1,5 +1,5 @@
 ---
-title: "constraints"
+title: "Constraints in depth"
 output: rmarkdown::html_vignette
 vignette: >
   %\VignetteIndexEntry{constraints}
@@ -17,3 +17,144 @@ knitr::opts_chunk$set(
 ```{r setup}
 library(easylp)
 ```
+
+This vignette will teach you all the different ways to define linear constraints.
+
+# Introduction
+
+## Basics
+
+Let's start with a problem with 2 scalar variables and we'll complicate it from there. Say our constraint is: $2x \le y$. We can write the constraint just like we would in pen and paper!
+
+```{r}
+lp <- easylp$new()
+lp$var("x")
+lp$var("y")
+lp$con(2*x <= y)
+```
+
+As you can see, we don't need to put the variables on the left hand side and the constant on the right hand side. We don't need to expand the expression either. Say our next constraint is $x+3(y+1)\ge0$. We can write it just like that.
+
+```{r}
+lp$con(x + 3*(y + 1) >= 0)
+#> Equivalent to
+#> lp$con(x + 3*y + 3 >= 0)
+```
+
+Now we can define an equality constraint. And we'll name it, for good measure. Notice how the single equal `=` separates the name from the constraint, and the double equal `==` is used to represent equality. Just like base R.
+
+```{r}
+lp$con(last =  x + y == 4)
+```
+
+You may have seen linear constraints represented as $Ax\lesseqgtr b$. Easylp stores constraints in this way. You can see them using `lp$pretty_constraints()` or, alternatively, `lp$constraint`.
+
+```{r}
+lp$pretty_constraints()
+#> The following would show how constraints are actually stored internally.
+#> lp$constraint
+```
+
+## Vector Variables
+
+In Easylp, variables can be scalars, vectors, or even multi-dimensional arrays. Take this example, where two different factories {A, B}, produce shirts and pants.
+
+```{r}
+factory <- c("A", "B")
+lp <- easylp$new()
+lp$var("shirts", factory, lower=0, integer=TRUE)
+lp$var("pants",  factory, lower=0, integer=TRUE)
+```
+
+### Sums of variables
+
+Say that we must produce at least 80 shirts and 50 pants between the two factories. These constraints can be represented as:
+
+$$
+\sum_{i\in F}{shirts_i} \ge 80
+$$
+
+$$
+\sum_{i\in F}{pants_i} \ge 50
+$$
+
+This is one way to write them in Easylp.
+
+```{r}
+lp1 <- lp$clone()
+lp1$con(
+    shirt =  sum(shirts) >= 80,
+    pant  =  sum(pants)  >= 50
+)
+```
+
+We're told we need to produce a minimum of 200 products, between shirts and pants. Thanks to the awesome developer of Easylp, we can use `sum` with multiple arguments.
+
+```{r}
+lp1$con(total =  sum(shirts, pants) >= 200)
+#> Equivalent to
+#> lp1$con(total =  sum(shirts) + sum(pants) >= 200)
+
+lp1$pretty_constraints()
+```
+
+### Indexing
+
+Variables can be indexed just like you would in R. It's possible to use numbers or names, if the variable has any. In this case, the names of the variables are {A, B}, because they're defined for each factory.
+
+```{r}
+lp1 <- lp$clone()
+lp1$con(shirts[1] + pants["A"] <= 160)
+lp1$pretty_constraints()
+```
+
+### One line, multiple constraints
+
+Take the following example: each factory must produce more shirts than pants.
+
+$$
+shirts_i \ge pants_i \ \ \forall i\in F
+$$
+
+Your first instinct may be to write something like this.
+
+```{r}
+lp1 <- lp$clone()
+for (i in factory) {
+    lp1$con(name =  shirts[i] >= pants[i])
+}
+```
+
+And this would be correct! But Easylp allows you to write this in a more concise way, using the following syntax.
+
+```{r}
+lp2 <- lp$clone()
+lp2$con(name =  for(i in factory) shirts[i] >= pants[i])
+```
+
+The third and last way to do this is to use vectorized operations, which is a common feature in R.
+
+```{r}
+lp3 <- lp$clone()
+lp3$con(name =  shirts >= pants)
+```
+
+Notice the only difference between the three is how the constraints are named. My personal favorite is the second method, because it's shorter than the first, and more intuitive than the third.
+
+```{r}
+lp1$pretty_constraints()
+lp2$pretty_constraints()
+lp3$pretty_constraints()
+```
+
+## Matrix Variables
+
+Let's use a transportation problem as an example. We have two factories {A, B} sending products to two markets {1, 2}.
+
+```{r}
+factory <- c("A", "B")
+market <- c(1, 2)
+lp <- easylp$new()
+lp$var("t")
+```
+

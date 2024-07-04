@@ -36,12 +36,12 @@ dim.lp_var <- function(x) dim(x$ind)
 #' @export
 `[.lp_var` <- function(x, ...) {
 
-    # dots <- dots_list(...)
-    # if (any(lengths(dots) != 1L))
-    #     stop("You can only index one value of an lp_var at a time")
-
     old_ind <- x$ind
-    x$ind <- `[`(x$ind, ..., drop = FALSE)
+    x$ind <- `[`(x$ind, ..., drop=FALSE)
+
+    if (anyNA(x$ind))
+        stop("Variable ", format(enexpr(x)), " was wrongly indexed.")
+
     x$selected[] <- FALSE
     x$selected[x$ind] <- TRUE
 
@@ -184,6 +184,7 @@ Compare_lp_var <- function(e1, e2, .Generic) {
 }
 #' @export
 sum.lp_var <- function(x, ..., na.rm = FALSE) {
+    stopifnot(isFALSE(na.rm))
     dots <- dots_list(...)
     if (length(dots) != 0L) {
         x_summed <- sum(x)
@@ -191,7 +192,7 @@ sum.lp_var <- function(x, ..., na.rm = FALSE) {
         return(Reduce(`+`, dots_summed, x_summed))
     }
     check_dots_empty(error = "Function 'sum' only supports one variable.")
-    x$coef <- matrix(colSums(x$coef, na.rm = na.rm), nrow = 1L)
-    x$add <- sum(x$add, na.rm = na.rm)
+    x$coef <- matrix(colSums(x$coef), nrow = 1L)
+    x$add <- sum(x$add)
     return(x)
 }

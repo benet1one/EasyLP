@@ -69,12 +69,15 @@ easylp <- R6Class("easylp", public = list(
     var = function(name, ..., integer = FALSE, binary = FALSE,
                    lower = -Inf, upper = +Inf) {
 
-        stopifnot(is_scalar_character(name))
-        stopifnot(is_scalar_logical(integer))
-        stopifnot(is_scalar_logical(binary))
-        stopifnot(length(lower) == 1L)
-        stopifnot(length(upper) == 1L)
-        stopifnot(lower < upper)
+        stopifnot(is_scalar_character(name),
+                  is_scalar_logical(integer),
+                  is_scalar_logical(binary),
+                  length(lower) == 1L,
+                  length(upper) == 1L,
+                  lower < upper)
+
+        if (is.element(name, names(self$variables)))
+            stop("Variable '", name, "' already defined in this model.")
 
         if (binary) {
             integer <- FALSE
@@ -258,6 +261,7 @@ easylp <- R6Class("easylp", public = list(
         self$pointer <- prob
         return(self)
     },
+
     #' @description
     #' Display the solution using an array for each defined variable.
     #' @returns A named list with the values of each variable.
@@ -271,6 +275,11 @@ easylp <- R6Class("easylp", public = list(
             sol[] <- self$solution[x$ind]
             sol
         })
+    },
+    pretty_constraints = function() {
+        mat <- with(self$constraint, cbind(mat, dir=dir, rhs=rhs))
+        print(mat, quote = FALSE)
+        invisible(mat)
     },
 
     #' @description

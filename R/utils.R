@@ -29,7 +29,7 @@ for_split <- function(expr, envir = parent.frame()) {
 }
 
 name_variable <- function(name, sets) {
-    if (length(sets) == 0L)
+    if (length(sets) == 1L && length(sets[[1]]) == 1L)
         return(name)
     grid <- do.call(expand.grid, sets)
     index <- .mapply(dots = grid, FUN = paste, MoreArgs = list(sep = ", "))
@@ -127,3 +127,30 @@ sum_for <- function(..., .env = caller_env()) {
 }
 
 
+#' Randomize values for a variable.
+#' @description
+#' You can use this function to test if the variable is correctly defined,
+#' or to check how you may index it. The values aren't necessarily feasable,
+#' but they are bounded. If the variable is integer or binary, the values will too.
+#'
+#' @param x Linear problem variable. Get it from 'easylp$variables'.
+#' @param max_value Numeric, maximum absolute value of the values, when
+#' the variable is unbounded.
+#'
+#' @return An array of the same dimensions as the variable.
+#' @export
+#'
+#' @examples
+example_values <- function(x, max_value = 100) {
+    stopifnot(is_lp_var(x), length(max_value) == 1L)
+    max_value <- abs(max_value)
+    lower <- max(x$bound[1L], -max_value)
+    upper <- min(x$bound[2L], +max_value)
+    values <- runif(length(x), min = lower, max = upper)
+    if (x$integer || x$binary)
+        values <- round(values)
+
+    arr <- x$ind
+    arr[] <- values
+    return(arr)
+}
