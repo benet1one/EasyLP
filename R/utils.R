@@ -50,11 +50,11 @@ name_for_split <- function(fsplit, name) {
     fsplit
 }
 
-compare_tol <- function(lhs, rhs, dir, tol) {
+compare_tol <- Vectorize(function(lhs, rhs, dir, tol) {
     if (dir == "==")
         return(abs(lhs - rhs) <= tol)
     match.fun(dir)(lhs + c(tol,-tol), rhs) |> any()
-}
+})
 large_to_infinity <- function(x, threshold = 1e30) {
     x[x >= +threshold] <- +Inf
     x[x <= -threshold] <- -Inf

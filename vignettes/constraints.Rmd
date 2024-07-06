@@ -149,12 +149,32 @@ lp3$pretty_constraints()
 
 ## Matrix Variables
 
-Let's use a transportation problem as an example. We have two factories {A, B} sending products to two markets {1, 2}.
+Let's use a simple transportation problem as an example. We have two factories {A, B} sending products to two markets {1, 2}. The variable `t` represents products transported from each factory to each market.
 
 ```{r}
 factory <- c("A", "B")
 market <- c(1, 2)
 lp <- easylp$new()
-lp$var("t")
+lp$var("t", factory, market, lower=0)
 ```
 
+Each factory can produce up to a maximum `capacity`, and each market has a minimum `demand`.
+
+$$
+production_i = \sum_{j\in M}{t_{ij}}\le capacity_i \ \ \forall i\in F
+$$
+
+$$
+stock_j=\sum_{i\in F}{t_{ij}}\ge demand_j \ \ \forall j\in M
+$$
+
+```{r}
+capacity <- c(120, 180) |> setNames(factory)
+demand <- c(140, 150)
+
+lp$con(
+    cap =  for(i in factory) sum(t[i, ]) <= capacity[i],
+    dem =  for(j in market)  sum(t[, j]) >= demand[j]
+)
+lp$pretty_constraints()
+```

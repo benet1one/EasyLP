@@ -67,6 +67,7 @@ See more at \url{https://lpsolve.sourceforge.net/5.5/}.}
 \item \href{#method-easylp-max}{\code{easylp$max()}}
 \item \href{#method-easylp-solve}{\code{easylp$solve()}}
 \item \href{#method-easylp-pretty_solution}{\code{easylp$pretty_solution()}}
+\item \href{#method-easylp-pretty_constraints}{\code{easylp$pretty_constraints()}}
 \item \href{#method-easylp-sensitivity_objective}{\code{easylp$sensitivity_objective()}}
 \item \href{#method-easylp-sensitivity_rhs}{\code{easylp$sensitivity_rhs()}}
 \item \href{#method-easylp-feasable}{\code{easylp$feasable()}}
@@ -198,6 +199,15 @@ See \code{\link[lpSolveAPI]{lp.control.options}}}
 Display the solution using an array for each defined variable.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{easylp$pretty_solution()}\if{html}{\out{</div>}}
+}
+
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-easylp-pretty_constraints"></a>}}
+\if{latex}{\out{\hypertarget{method-easylp-pretty_constraints}{}}}
+\subsection{Method \code{pretty_constraints()}}{
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{easylp$pretty_constraints()}\if{html}{\out{</div>}}
 }
 
 }

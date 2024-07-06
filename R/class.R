@@ -150,6 +150,7 @@ easylp <- R6Class("easylp", public = list(
             binary = binary,
             bound = c(Lower = lower, Upper = upper),
             selected = selected,
+            indexable = TRUE,
             coef = coef,
             add = add
         ) |> structure(class = "lp_var")
@@ -189,6 +190,7 @@ easylp <- R6Class("easylp", public = list(
             self$constraint$dir <- c(self$constraint$dir, unname(constraint$dir))
             self$constraint$rhs <- c(self$constraint$rhs, unname(constraint$rhs))
         }
+        self$check_feasable()
         invisible(self)
     },
     #' @description
@@ -265,20 +267,26 @@ easylp <- R6Class("easylp", public = list(
     #' @description
     #' Display the solution using an array for each defined variable.
     #' @returns A named list with the values of each variable.
-    pretty_solution = function() {
+    pretty_solution = function(.print = TRUE) {
         self$check_solved()
         stopifnot(self$status == "optimal")
-        lapply(self$variables, \(x) {
+        l <- lapply(self$variables, \(x) {
             if (length(x$ind) == 1L)
                 return(self$solution[x$ind] |> unname())
             sol <- x$ind
             sol[] <- self$solution[x$ind]
             sol
         })
+        if (.print) print(l)
+        invisible(l)
     },
-    pretty_constraints = function() {
+    #' @description
+    #' Display the constraint matrix, with the direction and the right-hand-side
+    #' of each constraint.
+    #' @returns A character matrix.
+    pretty_constraints = function(.print = TRUE) {
         mat <- with(self$constraint, cbind(mat, dir=dir, rhs=rhs))
-        print(mat, quote = FALSE)
+        if (.print) print(mat, quote = FALSE)
         invisible(mat)
     },
 
@@ -323,38 +331,50 @@ easylp <- R6Class("easylp", public = list(
         return(rhs)
     },
 
-    feasable = function(solution = self$solution, tol = 2e-8) {
+    feasable = function(tol = 2e-8) {
         stopifnot(nrow(self$constraint$mat) > 0L)
-        for (k in 1:nrow(self$constraint$mat)) {
-            lhs <- sum(solution * self$constraint$mat[k, ])
-            dir <- self$constraint$dir[k]
-            rhs <- self$constraint$rhs[k]
-
-            feasable_k <- compare_tol(lhs, rhs, dir, tol)
-            if (!feasable_k)
-                return(FALSE)
-        }
-        TRUE
+        lhs <- self$constraint$mat %*% self$solution
+        dir <- self$constraint$dir
+        rhs <- self$constraint$rhs
+        nam <- rownames(self$constraint$mat)
+        nam[nam == ""] <- which(nam == "")
+        compare_tol(lhs, rhs, dir, tol) |> setNames(nam)
     },
+    #' @description
+    #' Checks if the current solution is feasable and resets it otherwise.
     check_feasable = function() {
-        if (self$feasable())
+
+        if (self$status == "unsolved")
             return(self)
-        message("Current solution has become unfeasable. Use easylp$solve() to find a new one.")
-        self$reset_solution()
+
+        feas <- self$feasable()
+
+        if (any(!feas)) {
+            unfeas <- paste(names(feas)[!feas], collapse = ",")
+            message("Constrainsts: ", unfeas, "; have become unfeasable. ",
+                    "Use easylp$solve() to find a new solution.")
+            self$reset_solution()
+        }
+
         return(self)
     },
-    # check_optimal = function() {
-    #     self$check_solved()
-    # },
+    #' @description
+    #' Returns an error if problem is unsolved. Used internally.
     check_solved = function() {
         if (self$status == "unsolved")
             stop("Linear Problem has not been solved. Use easylp$solve().")
     },
+    #' @description
+    #' Does the problem contain any integer or binary variables?
+    #' Used internally.
     any_integer = function() {
         for (v in self$variables)
             if (v$integer || v$binary) return(TRUE)
         return(FALSE)
     },
+    #' @description
+    #' Remove all solution data, including the objective value.
+    #' The pointer to the lpSolveAPI model is kept. Used internally.
     reset_solution = function() {
         self$status <- "unsolved"
         self$solution[] <- 0
@@ -370,6 +390,9 @@ easylp <- R6Class("easylp", public = list(
         self$reset_solution()
         invisible(self)
     },
+    #' @description
+    #' Check if an operation is valid, using the problem's variables.
+    #' Does not allow the 'for' syntax allowed in constraint definition.
     test = function(expr) {
         expr <- enexpr(expr)
         envir <- as_environment(self$variables, parent = caller_env())

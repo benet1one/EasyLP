@@ -36,6 +36,9 @@ dim.lp_var <- function(x) dim(x$ind)
 #' @export
 `[.lp_var` <- function(x, ...) {
 
+    if (!x$indexable)
+        stop("Cannot index this result.")
+
     old_ind <- x$ind
     x$ind <- `[`(x$ind, ..., drop=FALSE)
 
@@ -182,6 +185,22 @@ Compare_lp_var <- function(e1, e2, .Generic) {
         rhs = rhs
     ) |> structure(class = "lp_con")
 }
+
+#' @export
+Math.lp_var <- function(x) {
+    if (.Generic == "abs")
+        stop("Function 'abs' is not linear. ",
+             "See how to use absolute values in linear programming here:\n",
+             "https://optimization.cbe.cornell.edu/index.php?title=Optimization_with_absolute_values")
+    if (.Generic != "cumsum")
+        stop("Function '", .Generic, "' is not linear.")
+
+    x$add <- cumsum(x$add)
+    if (nrow(x$coef) >= 2L)  for (i in 2:nrow(x$coef))
+        x$coef[i, ] <- x$coef[i, ] + x$coef[i-1L, ]
+
+    return(x)
+}
 #' @export
 sum.lp_var <- function(x, ..., na.rm = FALSE) {
     stopifnot(isFALSE(na.rm))
@@ -194,5 +213,12 @@ sum.lp_var <- function(x, ..., na.rm = FALSE) {
     check_dots_empty(error = "Function 'sum' only supports one variable.")
     x$coef <- matrix(colSums(x$coef), nrow = 1L)
     x$add <- sum(x$add)
+    x$indexable <- FALSE
     return(x)
 }
+#' @export
+mean.lp_var <- function(x, ...) {
+    check_dots_empty()
+    sum(x) / length(x)
+}
+
