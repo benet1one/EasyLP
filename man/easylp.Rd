@@ -4,13 +4,15 @@
 \alias{easylp}
 \title{Easy Linear Problem}
 \value{
+Array, where rows are variables, first column is the lower bound,
+second column is the current value, and third column is the upper bound.
+
+Array, where rows are variables, first column is the lower bound,
+second column is the current value, and third column is the upper bound.
+
 A named list with the values of each variable.
 
-Array, where rows are variables, first column is the lower bound,
-second column is the current value, and third column is the upper bound.
-
-Array, where rows are variables, first column is the lower bound,
-second column is the current value, and third column is the upper bound.
+A character matrix.
 }
 \description{
 Object containing all the information about a linear problem, as well
@@ -66,8 +68,7 @@ See more at \url{https://lpsolve.sourceforge.net/5.5/}.}
 \item \href{#method-easylp-min}{\code{easylp$min()}}
 \item \href{#method-easylp-max}{\code{easylp$max()}}
 \item \href{#method-easylp-solve}{\code{easylp$solve()}}
-\item \href{#method-easylp-pretty_solution}{\code{easylp$pretty_solution()}}
-\item \href{#method-easylp-pretty_constraints}{\code{easylp$pretty_constraints()}}
+\item \href{#method-easylp-associate}{\code{easylp$associate()}}
 \item \href{#method-easylp-sensitivity_objective}{\code{easylp$sensitivity_objective()}}
 \item \href{#method-easylp-sensitivity_rhs}{\code{easylp$sensitivity_rhs()}}
 \item \href{#method-easylp-feasable}{\code{easylp$feasable()}}
@@ -135,7 +136,7 @@ lp$variables
 \subsection{Method \code{con()}}{
 Define constraints.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{easylp$con(..., expr_list = list(), .env = caller_env())}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{easylp$con(..., expr_list = list(), envir = self$envir)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
@@ -193,21 +194,18 @@ See \code{\link[lpSolveAPI]{lp.control.options}}}
 }
 }
 \if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-easylp-pretty_solution"></a>}}
-\if{latex}{\out{\hypertarget{method-easylp-pretty_solution}{}}}
-\subsection{Method \code{pretty_solution()}}{
-Display the solution using an array for each defined variable.
+\if{html}{\out{<a id="method-easylp-associate"></a>}}
+\if{latex}{\out{\hypertarget{method-easylp-associate}{}}}
+\subsection{Method \code{associate()}}{
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{easylp$pretty_solution()}\if{html}{\out{</div>}}
-}
-
-}
-\if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-easylp-pretty_constraints"></a>}}
-\if{latex}{\out{\hypertarget{method-easylp-pretty_constraints}{}}}
-\subsection{Method \code{pretty_constraints()}}{
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{easylp$pretty_constraints()}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{easylp$associate(
+  x,
+  binary,
+  max1 = x$bound[2L],
+  max0 = x$bound[1L],
+  min1 = x$bound[1L] + 1L,
+  min0 = x$bound[1L]
+)}\if{html}{\out{</div>}}
 }
 
 }
@@ -241,7 +239,7 @@ integer or binary variables.
 \if{latex}{\out{\hypertarget{method-easylp-feasable}{}}}
 \subsection{Method \code{feasable()}}{
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{easylp$feasable(solution = self$solution, tol = 2e-08)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{easylp$feasable(tol = 2e-08)}\if{html}{\out{</div>}}
 }
 
 }
@@ -249,6 +247,7 @@ integer or binary variables.
 \if{html}{\out{<a id="method-easylp-check_feasable"></a>}}
 \if{latex}{\out{\hypertarget{method-easylp-check_feasable}{}}}
 \subsection{Method \code{check_feasable()}}{
+Checks if the current solution is feasable and resets it otherwise.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{easylp$check_feasable()}\if{html}{\out{</div>}}
 }
@@ -258,6 +257,7 @@ integer or binary variables.
 \if{html}{\out{<a id="method-easylp-check_solved"></a>}}
 \if{latex}{\out{\hypertarget{method-easylp-check_solved}{}}}
 \subsection{Method \code{check_solved()}}{
+Returns an error if problem is unsolved. Used internally.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{easylp$check_solved()}\if{html}{\out{</div>}}
 }
@@ -267,6 +267,8 @@ integer or binary variables.
 \if{html}{\out{<a id="method-easylp-any_integer"></a>}}
 \if{latex}{\out{\hypertarget{method-easylp-any_integer}{}}}
 \subsection{Method \code{any_integer()}}{
+Does the problem contain any integer or binary variables?
+Used internally.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{easylp$any_integer()}\if{html}{\out{</div>}}
 }
@@ -276,6 +278,8 @@ integer or binary variables.
 \if{html}{\out{<a id="method-easylp-reset_solution"></a>}}
 \if{latex}{\out{\hypertarget{method-easylp-reset_solution}{}}}
 \subsection{Method \code{reset_solution()}}{
+Remove all solution data, including the objective value.
+The pointer to the lpSolveAPI model is kept. Used internally.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{easylp$reset_solution()}\if{html}{\out{</div>}}
 }
@@ -294,8 +298,9 @@ integer or binary variables.
 \if{html}{\out{<a id="method-easylp-test"></a>}}
 \if{latex}{\out{\hypertarget{method-easylp-test}{}}}
 \subsection{Method \code{test()}}{
+Check if an operation is valid, using the problem's variables.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{easylp$test(expr)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{easylp$test(expr, envir = self$envir)}\if{html}{\out{</div>}}
 }
 
 }

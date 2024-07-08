@@ -28,7 +28,7 @@ for(i in 1:4) for(j in 1:4) for(n in 1:4) {
 
 lp$solve(break.at.first = TRUE)
 
-sol <- lp$pretty_solution() $ x
+sol <- lp$pretty_solution$x
 for (n in 2:4) sol[, , n] <- sol[, , n] * n
 sol <- apply(sol, 1:2, sum)
 

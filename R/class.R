@@ -8,6 +8,18 @@ library(rlang)
 #' Object containing all the information about a linear problem, as well
 #' as functions to define, modify, and solve it.
 #'
+#' @field pretty_solution Optimal values for each variable, with
+#' the sets they were defined with.
+#' @field pretty_constraints Constraint matrix, including direction (dir)
+#' and right-hand-side (rhs).
+#' @field sensitivity_objective Sensitivity for objective function coefficients.
+#' Rows are variables, first column is the lower bound,
+#' second column is the current value,
+#' and third column is the upper bound.
+#' @field sensitivity_rhs Sensitivity for constraint right-hand-side coefficients.
+#' Rows are variables, first column is the lower bound,
+#' second column is the current value,
+#' and third column is the upper bound.
 #' @field variables List of variables included.
 #' @field nvar Actual number of variables, \code{sum(lengths(variables))}.
 #' @field constraint List including the constraint matrix 'mat',
@@ -27,7 +39,8 @@ library(rlang)
 #' @import R6
 #' @import lpSolveAPI
 #' @import rlang
-easylp <- R6Class("easylp", public = list(
+easylp <- R6Class("easylp",
+public = {list(
 
     variables = list(),
     constraint = list(
@@ -43,10 +56,7 @@ easylp <- R6Class("easylp", public = list(
 
     status = "unsolved",
     objective_value = NA_real_,
-    solution = structure(
-        numeric(),
-        info = "Use easylp$pretty_solution() to display the solution!"
-    ),
+    solution = numeric(),
     pointer = NULL,
 
     #' @description
@@ -168,15 +178,14 @@ easylp <- R6Class("easylp", public = list(
     #'
     #' @export
     # #' @example inst/examples/cons.R
-    con = function(..., expr_list = list(), .env = caller_env()) {
-        envir <- as_environment(self$variables, parent = .env)
+    con = function(..., expr_list = list(), envir = self$envir) {
         dots <- c(enexprs(...), expr_list)
         for (k in seq_along(dots)) {
             expr <- inside(dots[[k]])
             if (expr[[1L]] == quote(`for`)) {
-                split <- for_split(expr, envir = .env)
+                split <- for_split(expr, envir = envir)
                 split <- name_for_split(split, name = names(dots)[k])
-                self$con(expr_list = split, .env = .env)
+                self$con(expr_list = split, envir = envir)
                 next
             }
             constraint <- eval(expr, envir)
@@ -190,7 +199,7 @@ easylp <- R6Class("easylp", public = list(
             self$constraint$dir <- c(self$constraint$dir, unname(constraint$dir))
             self$constraint$rhs <- c(self$constraint$rhs, unname(constraint$rhs))
         }
-        self$check_feasable()
+        self$check_feasible()
         invisible(self)
     },
     #' @description
@@ -199,7 +208,7 @@ easylp <- R6Class("easylp", public = list(
     #' Must be a single value, so use \code{sum()} when needed.
     min = function(objective) {
         self$direction <- "min"
-        self$.obj(enexpr(objective))
+        private$obj(enexpr(objective), envir = self$envir)
     },
     #' @description
     #' Define objective function for a maximization problem.
@@ -207,7 +216,7 @@ easylp <- R6Class("easylp", public = list(
     #' Must be a single value, so use \code{sum()} when needed.
     max = function(objective) {
         self$direction <- "max"
-        self$.obj(enexpr(objective))
+        private$obj(enexpr(objective), envir = self$envir)
     },
     #' @description
     #' Find an optimal solution.
@@ -246,7 +255,7 @@ easylp <- R6Class("easylp", public = list(
             as.character(status),
             "0" = "optimal",
             "1" = "sub-optimal",
-            "2" = "unfeasable",
+            "2" = "unfeasible",
             "3" = "unbounded",
             "4" = "degenerate model",
             "5" = "numerical failure encountered",
@@ -261,102 +270,82 @@ easylp <- R6Class("easylp", public = list(
         )
 
         self$pointer <- prob
-        return(self)
+        invisible(self)
     },
 
     #' @description
-    #' Display the solution using an array for each defined variable.
-    #' @returns A named list with the values of each variable.
-    pretty_solution = function(.print = TRUE) {
-        self$check_solved()
-        stopifnot(self$status == "optimal")
-        l <- lapply(self$variables, \(x) {
-            if (length(x$ind) == 1L)
-                return(self$solution[x$ind] |> unname())
-            sol <- x$ind
-            sol[] <- self$solution[x$ind]
-            sol
-        })
-        if (.print) print(l)
-        invisible(l)
+    #' Remove constraints.
+    #' @param name Character vector containing the (unindexed) name of
+    #' the constraints to remove.
+    uncon = function(name) {
+        if (!is_character(name))
+            stop("Use the name <character> of a constraint to remove it.")
+        unind <- sub(rownames(self$constraint$mat),
+                     pattern = "\\[.+", replacement = "")
+        to_remove <- is.element(unind, name)
+        self$constraint$mat <- self$constraint$mat[!to_remove, , drop=FALSE]
+        self$constraint$dir <- self$constraint$dir[!to_remove]
+        self$constraint$rhs <- self$constraint$rhs[!to_remove]
+        invisible(self)
     },
     #' @description
-    #' Display the constraint matrix, with the direction and the right-hand-side
-    #' of each constraint.
-    #' @returns A character matrix.
-    pretty_constraints = function(.print = TRUE) {
-        mat <- with(self$constraint, cbind(mat, dir=dir, rhs=rhs))
-        if (.print) print(mat, quote = FALSE)
-        invisible(mat)
+    #' Associate a numeric variable with a binary variable.
+    #' It's recommended to set both lower and upper bound for the
+    #' numeric variable before associating it to a binary variable.
+    #' @param x Numeric variable.
+    #' @param binary Binary variable.
+    #' @param max1 Upper bound for 'x' when 'binary == 1'
+    #' @param max0 Upper bound for 'x' when 'binary == 0'
+    #' @param min1 Lower bound for 'x' when 'binary == 1'
+    #' @param min0 Lower bound for 'x' when 'binary == 0'
+    associate = function(x, binary,
+                         max1 = x$bound[2L], max0 = x$bound[1L],
+                         min1 = x$bound[1L], min0 = x$bound[1L]) {
+
+        x <- eval(enexpr(x), envir = self$envir)
+        x <- update_bounds(x, self$variables)
+
+        stopifnot(length(max1) == 1L, length(max0) == 1L,
+                  length(min1) == 1L, length(min0) == 1L,
+                  is.finite(max1), is.finite(max0),
+                  is.finite(min1), is.finite(min0))
+
+        b <- eval(enexpr(binary), envir = self$envir)
+
+        if (!b$binary)
+            warning("Variable '", format(enexpr(binary)), "' is not binary.",
+                    "Result may not be as expected.")
+
+        if (max1 != x$bound[2L] || max0 != x$bound[2L])
+            self$con(assoc_max =  !!enexpr(x) <=
+                         !!max0 + !!(max1 - max0) * !!enexpr(binary))
+
+        if (min1 != x$bound[1L] || min0 != x$bound[1L])
+            self$con(assoc_min =  !!enexpr(x) >=
+                         !!min0 + !!(min1 - min0) * !!enexpr(binary))
+
+        invisible(self)
     },
 
     #' @description
-    #' Compute sensitivity for objective function coefficients.
-    #' @returns Array, where rows are variables, first column is the lower bound,
-    #' second column is the current value, and third column is the upper bound.
-    sensitivity_objective = function() {
-        self$check_solved()
-        if (self$any_integer())
-            stop("Sensitivity unavailable for problems with integer/binary variables")
-        objective <- array(
-            dim = c(length(self$objective_fun), 3L),
-            dimnames = list(Variable = names(self$solution),
-                            Bound = c("Upper", "Current", "Lower"))
-        )
-        sens <- get.sensitivity.obj(self$pointer)
-        objective[, "Lower"] <- large_to_infinity(sens$objfrom)
-        objective[, "Upper"] <- large_to_infinity(sens$objtill)
-        objective[, "Current"] <- self$objective_fun
-        return(objective)
-    },
-    #' @description
-    #' Compute sensitivity for constraint right-hand-side coefficients.
-    #' @returns Array, where rows are variables, first column is the lower bound,
-    #' second column is the current value, and third column is the upper bound.
-    #' @details For technical reasons, this function can not be used if there are
-    #' integer or binary variables.
-    sensitivity_rhs = function() {
-        self$check_solved()
-        if (self$any_integer())
-            stop("Sensitivity unavailable for problems with integer/binary variables")
-        rhs <- array(
-            dim = c(nrow(self$constraint$mat), 3L),
-            dimnames = list(Constraint = rownames(self$constraint$mat),
-                            Bound = c("Upper", "Current", "Lower"))
-        )
-        sens <- get.sensitivity.rhs(self$pointer)
-        rhs[, "Lower"] <- large_to_infinity(sens$dualsfrom)
-        rhs[, "Upper"] <- large_to_infinity(sens$dualstill)
-        rhs[, "Current"] <- self$constraint$rhs
-        return(rhs)
-    },
-
-    feasable = function(tol = 2e-8) {
-        stopifnot(nrow(self$constraint$mat) > 0L)
-        lhs <- self$constraint$mat %*% self$solution
-        dir <- self$constraint$dir
-        rhs <- self$constraint$rhs
-        nam <- rownames(self$constraint$mat)
-        nam[nam == ""] <- which(nam == "")
-        compare_tol(lhs, rhs, dir, tol) |> setNames(nam)
-    },
-    #' @description
-    #' Checks if the current solution is feasable and resets it otherwise.
-    check_feasable = function() {
+    #' Checks if the current solution is feasible and resets it otherwise.
+    #' This function should be used every time you manually change a
+    #' value in the constraint matrix or right-hand-side.
+    check_feasible = function(tol = 2e-8) {
 
         if (self$status == "unsolved")
             return(self)
 
-        feas <- self$feasable()
+        feas <- private$feasible()
 
         if (any(!feas)) {
             unfeas <- paste(names(feas)[!feas], collapse = ",")
-            message("Constrainsts: ", unfeas, "; have become unfeasable. ",
+            message("Constrainsts: ", unfeas, "; are unfeasible. ",
                     "Use easylp$solve() to find a new solution.")
             self$reset_solution()
         }
 
-        return(self)
+        invisible(self)
     },
     #' @description
     #' Returns an error if problem is unsolved. Used internally.
@@ -382,24 +371,15 @@ easylp <- R6Class("easylp", public = list(
         invisible(self)
     },
 
-    .obj = function(expr) {
-        envir <- as_environment(self$variables, parent = caller_env(2))
-        joint_var <- sum(eval(expr, envir))
-        self$objective_fun[] <- joint_var$coef
-        self$objective_add <- joint_var$add
-        self$reset_solution()
-        invisible(self)
-    },
     #' @description
     #' Check if an operation is valid, using the problem's variables.
-    #' Does not allow the 'for' syntax allowed in constraint definition.
-    test = function(expr) {
+    #' Supports 'for' syntax used in constraints.
+    test = function(expr, envir = self$envir) {
         expr <- enexpr(expr)
-        envir <- as_environment(self$variables, parent = caller_env())
         if (expr[[1L]] == quote(`for`)) {
-            split <- for_split(expr, envir = .env)
+            split <- for_split(expr, envir = envir)
             split <- name_for_split(split, name = names(dots)[k])
-            return(self$test(!!expr, .env = .env))
+            return(self$test(!!expr, .env = envir))
         }
         eval(expr, envir)
     },
@@ -416,8 +396,86 @@ easylp <- R6Class("easylp", public = list(
             cat("", ifelse(add > 0, "+", "-"), abs(add), "=", val)
 
         cat("\n\nSolution:\n")
-        print(self$pretty_solution())
+        print(self$pretty_solution)
+    },
+    plot = function() {
+        plot(self$pointer)
+        invisible(self)
+    },
+    finalize = function() {
+        try(delete.lp(self$pointer), silent = TRUE)
     }
-))
+)},
+private = {list(
+    obj = function(expr, envir) {
+        joint_var <- sum(eval(expr, envir))
+        self$objective_fun[] <- joint_var$coef
+        self$objective_add <- joint_var$add
+        self$reset_solution()
+        invisible(self)
+    },
+    feasible = function(tol = 2e-8) {
+        list2env(self$constraint, environment())
+        stopifnot(nrow(mat) > 0L)
+        lhs <- mat %*% self$solution
+        nam <- rownames(mat)
+        nam[nam == ""] <- which(nam == "")
+        compare_tol(lhs, rhs, dir, tol) |> setNames(nam)
+    }
+)},
+active = {list(
+    envir = function() {
+        as_environment(self$variables, parent = caller_env(2L))
+    },
+    pretty_solution = function() {
+        if (self$status != "optimal")
+            stop("Must successfully solve the problem before getting a solution.")
+        lapply(self$variables, \(x) {
+            if (length(x$ind) == 1L)
+                return(self$solution[x$ind] |> unname())
+            sol <- x$ind
+            sol[] <- self$solution[x$ind]
+            sol
+        })
+    },
+    pretty_constraints = function() {
+        mat <- with(self$constraint, cbind(mat, dir=dir, rhs=rhs))
+        tab <- as.table(mat)
+        rownames(tab) <- rownames(mat)
+        tab
+    },
+    sensitivity_objective = function() {
+        stopifnot(self$status == "optimal")
+        if (self$any_integer())
+            stop("Sensitivity unavailable for problems with integer/binary variables")
+        objective <- array(
+            dim = c(length(self$objective_fun), 3L),
+            dimnames = list(Variable = names(self$solution),
+                            Bound = c("Lower", "Current", "Upper"))
+        )
+        sens <- get.sensitivity.obj(self$pointer)
+        objective[, "Lower"] <- large_to_infinity(sens$objfrom)
+        objective[, "Upper"] <- large_to_infinity(sens$objtill)
+        objective[, "Current"] <- self$objective_fun
+        return(objective)
+    },
+    sensitivity_rhs = function() {
+        stopifnot(self$status == "optimal")
+        if (self$any_integer())
+            stop("Sensitivity unavailable for problems with integer/binary variables")
+        rhs <- array(
+            dim = c(nrow(self$constraint$mat), 3L),
+            dimnames = list(Constraint = rownames(self$constraint$mat),
+                            Bound = c("Lower", "Current", "Upper"))
+        )
+        sens <- get.sensitivity.rhs(self$pointer)
+        # browser()
+        rhs[, "Lower"] <- large_to_infinity(sens$dualsfrom[1:nrow(rhs)])
+        rhs[, "Upper"] <- large_to_infinity(sens$dualstill[1:nrow(rhs)])
+        rhs[, "Current"] <- self$constraint$rhs
+        return(rhs)
+    }
+)}
+)
 
 

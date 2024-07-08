@@ -60,7 +60,32 @@ large_to_infinity <- function(x, threshold = 1e30) {
     x[x <= -threshold] <- -Inf
     return(x)
 }
+update_bounds <- function(x, varlist) {
 
+    bounds <- lapply(varlist, \(v) matrix(v$bound, nrow = 2L, ncol = length(v)))
+    bounds <- do.call(cbind, bounds)
+    rownames(bounds) <- c("Lower", "Upper")
+
+    upper <- numeric(nrow(x$coef))
+    lower <- numeric(nrow(x$coef))
+
+    for (k in 1:nrow(x$coef)) {
+        pos <- x$coef[k, ] > 0
+        neg <- !pos
+        upper[k] <-
+            sum(x$coef[k, pos] * bounds["Upper", pos]) +
+            sum(x$coef[k, neg] * bounds["Lower", neg]) +
+            x$add[k]
+        lower[k] <-
+            sum(x$coef[k, pos] * bounds["Lower", pos]) +
+            sum(x$coef[k, neg] * bounds["Upper", neg]) +
+            x$add[k]
+    }
+
+    x$bound["Upper"] <- max(upper)
+    x$bound["Lower"] <- min(lower)
+    return(x)
+}
 
 #' Define a parameter for a linear problem.
 #' @description

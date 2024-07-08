@@ -6,14 +6,12 @@ pressupost <- 2000
 
 lp <- easylp$new()
 lp$var("quin", Avio, binary = TRUE)
-lp$var("x", Avio, integer = TRUE, lower = 0)
+lp$var("x", Avio, integer = TRUE, lower=0, upper=100)
 
 lp$max(sum(x * benefici))
+lp$associate(x, quin, min1 = 1)
 lp$con(
-    no_triat = x <= 100*quin,
-    si_triat = x >= quin,
     tipus = sum(quin) == 3,
-
     r_pressupost = sum(x * preu) <= pressupost,
     min_avions = sum(x) >= 35,
 
@@ -23,7 +21,7 @@ lp$con(
 )
 
 lp$solve()
-sol <- lp$pretty_solution()
+sol <- lp$pretty_solution
 despesa_total <- sum(sol$x * preu)
 
 print(lp)
@@ -38,3 +36,4 @@ test_that("become unfeasable", {
     expect_message(lp$con(no_factible = x["Petit"] + x["Mitjà"] >= 6))
     expect_setequal(lp$solution, 0)
 })
+

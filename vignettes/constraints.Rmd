@@ -47,10 +47,10 @@ Now we can define an equality constraint. And we'll name it, for good measure. N
 lp$con(last =  x + y == 4)
 ```
 
-You may have seen linear constraints represented as $Ax\lesseqgtr b$. Easylp stores constraints in this way. You can see them using `lp$pretty_constraints()` or, alternatively, `lp$constraint`.
+You may have seen linear constraints represented as $Ax\lesseqgtr b$. Easylp stores constraints in this way. You can see them using `lp$pretty_constraint` or, alternatively, `lp$constraint`.
 
 ```{r}
-lp$pretty_constraints()
+lp$pretty_constraints
 #> The following would show how constraints are actually stored internally.
 #> lp$constraint
 ```
@@ -95,7 +95,7 @@ lp1$con(total =  sum(shirts, pants) >= 200)
 #> Equivalent to
 #> lp1$con(total =  sum(shirts) + sum(pants) >= 200)
 
-lp1$pretty_constraints()
+lp1$pretty_constraints
 ```
 
 ### Indexing
@@ -105,7 +105,7 @@ Variables can be indexed just like you would in R. It's possible to use numbers 
 ```{r}
 lp1 <- lp$clone()
 lp1$con(shirts[1] + pants["A"] <= 160)
-lp1$pretty_constraints()
+lp1$pretty_constraints
 ```
 
 ### One line, multiple constraints
@@ -142,9 +142,9 @@ lp3$con(name =  shirts >= pants)
 Notice the only difference between the three is how the constraints are named. My personal favorite is the second method, because it's shorter than the first, and more intuitive than the third.
 
 ```{r}
-lp1$pretty_constraints()
-lp2$pretty_constraints()
-lp3$pretty_constraints()
+lp1$pretty_constraints
+lp2$pretty_constraints
+lp3$pretty_constraints
 ```
 
 ## Matrix Variables
@@ -176,5 +176,83 @@ lp$con(
     cap =  for(i in factory) sum(t[i, ]) <= capacity[i],
     dem =  for(j in market)  sum(t[, j]) >= demand[j]
 )
-lp$pretty_constraints()
+lp$pretty_constraints
 ```
+
+Another way to define these constraints is by using `sum_for`. This function is discussed in depth in `vignette("objective")`.
+
+```{r}
+lp$con(
+    cap =  for(i in factory) sum_for(j=market,  t[i, j]) <= capacity[i],
+    dem =  for(j in market)  sum_for(i=factory, t[i, j]) >= demand[j]
+)
+```
+
+Notice how similar this syntax is to the one used in math.
+
+$\dots, \forall a \in A \to$ `for(a in A) {...}`
+
+$\sum_{b\in B}{(\dots)}\to$ `sum_for(b=B, ...)`
+
+# Sensitivity
+
+You can obtain sensitivity for right-hand-side coefficients after successfully solving a linear problem. Unfortunately, sensitivity is only available if there are no integer or binary variables.
+
+```{r}
+lp <- easylp$new()
+lp$var("x", lower=0) # Red brass, 90% copper, 10% zinc.
+lp$var("y", lower=0) # Silicon bronze, 82% copper, 14% zinc, 4% silicon.
+lp$max(8*x + 6*y)
+lp$con(
+    copper  =  0.90*x + 0.64*y <= 120,
+    zinc    =  0.10*x + 0.14*y <= 15,
+    silicon =           0.04*y <= 2
+)
+
+lp$solve()
+lp$sensitivity_rhs |> round()
+```
+
+Be aware! If constraints are defined with variables on the right-hand-side, the results may be unexpected. Internally, Easylp stores variables on the left-hand-side and constants on the right-hand-side. See how it handles the following example:
+
+```{r}
+lp <- easylp$new()
+lp$var("x")
+lp$con(2 >= x)
+lp$pretty_constraints
+```
+
+# Removing Constraints
+
+Removing constraints is a way to make a problem feasible. You can use `easylp$uncon()` to un-constraint a problem.
+
+```{r}
+lp <- easylp$new()
+lp$var("x", 1:4)
+lp$min(sum(x))
+lp$con(
+    all_lesser =  x <= 2,
+    average    =  mean(x) >= 3
+)
+lp$solve()
+lp$pretty_constraints
+lp$status
+```
+
+All x must be lesser than 2, but the mean must be greater than 3. That's impossible! Let's try removing the first constraint.
+
+```{r}
+lp1 <- lp$clone()
+lp1$uncon("all_lesser")
+lp1$solve()
+lp1$pretty_constraints
+lp1$status
+```
+
+There's a couple things you should know about removing constraints:
+
+-   You can only remove named constraints.
+
+-   You cannot remove individual rows. For instance, you can't remove only `all_lesser[1]` from the previous example.
+
+-   You can remove multiple constraints at once using a character vector. `lp$uncon(c("all_lesser", "average"))`
