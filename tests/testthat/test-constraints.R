@@ -16,7 +16,7 @@ lp$con(
     r5 = cumsum(2*y + 1) >= 0,
 )
 
-lp$remove_constraint("r3")
+lp$uncon("r3")
 
 test_that("invalid variable operations", {
     expect_error(lp$con(2/x[1, 1, 1] >= 0))

@@ -10,6 +10,9 @@ parameter(x, ..., byrow = FALSE)
 \item{x}{Coefficients for the parameter.}
 
 \item{...}{Sets to index the parameter.}
+
+\item{byrow}{If there are 2 sets in \code{...}, whether to fill
+the matrix by rows. Otherwise filled by columns}
 }
 \value{
 Named array.
@@ -17,4 +20,12 @@ Named array.
 \description{
 Automatically set the dimensions and names of a parameter, based on
 sets. Similar to \code{number} in the SAS/OR proc optmodel.
+}
+\examples{
+factory <- c("A", "B")
+market <- c(1:3)
+transport_cost <- parameter(c(
+    3, 4, 2,
+    6, 2, 5
+), factory, market)
 }

@@ -7,7 +7,7 @@ is_lp_con <- function(x) {
 }
 
 #' @export
-print.lp_var <- function(x) {
+print.lp_var <- function(x, ...) {
 
     cat("Linear Programming Variable '", x$name, "'", sep = "")
 
@@ -55,9 +55,16 @@ dim.lp_var <- function(x) dim(x$ind)
 }
 
 horizontal_multiply <- function(x, mult) {
+
+    if (nrow(x) == 1L)
+        x <- x[rep(1L, length(mult)), , drop=FALSE]
     if (length(mult) == 1L)
         mult <- rep(mult, nrow(x))
-    stopifnot(nrow(x) == length(mult))
+
+    if (nrow(x) != length(mult))
+        stop("Linear variable must have the same length as multiplier ",
+             "Only values of size one are recycled.")
+
 
     for (i in seq_len(nrow(x)))
         x[i, ] <- x[i, ] * mult[i]
@@ -69,6 +76,10 @@ horizontal_mat_sum <- function(x, y) {
         x <- x[rep(1L, nrow(y)), , drop = FALSE]
     if (nrow(y) == 1L)
         y <- y[rep(1L, nrow(x)), , drop = FALSE]
+
+    if (nrow(x) != nrow(y))
+        stop("Linear variables must have the same length. ",
+             "Only values of size one are recycled.")
 
     stopifnot(identical(dim(x), dim(y)))
     return(x + y)
@@ -128,7 +139,7 @@ Arith_lp_var <- function(e1, e2, .Generic) {
             e1$add <- e1$add + e2
         } else if (.Generic == "-") {
             e1$add <- e1$add - e2
-        } else stop("Operation not allowed")
+        } else stop("Operation not allowed.")
 
         return(e1)
 
@@ -187,7 +198,7 @@ Compare_lp_var <- function(e1, e2, .Generic) {
 }
 
 #' @export
-Math.lp_var <- function(x) {
+Math.lp_var <- function(x, ...) {
     if (.Generic == "abs")
         stop("Function 'abs' is not linear. ",
              "See how to use absolute values in linear programming here:\n",
@@ -203,14 +214,13 @@ Math.lp_var <- function(x) {
 }
 #' @export
 sum.lp_var <- function(x, ..., na.rm = FALSE) {
-    stopifnot(isFALSE(na.rm))
+    warn_changed_args(na.rm = FALSE, .suffix = " for linear variables.")
     dots <- dots_list(...)
     if (length(dots) != 0L) {
         x_summed <- sum(x)
         dots_summed <- lapply(dots, sum)
         return(Reduce(`+`, dots_summed, x_summed))
     }
-    check_dots_empty(error = "Function 'sum' only supports one variable.")
     x$coef <- matrix(colSums(x$coef), nrow = 1L)
     x$add <- sum(x$add)
     x$indexable <- FALSE

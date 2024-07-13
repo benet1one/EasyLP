@@ -20,3 +20,8 @@ You can use this function to test if the variable is correctly defined,
 or to check how you may index it. The values aren't necessarily feasable,
 but they are bounded. If the variable is integer or binary, the values will too.
 }
+\examples{
+lp <- easylp$new()
+lp$var("x", letters[1:2], 1:3, lower=1, integer=TRUE)
+example_values(lp$variables$x)
+}

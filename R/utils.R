@@ -87,6 +87,98 @@ update_bounds <- function(x, varlist) {
     return(x)
 }
 
+warn_changed_args <- function(..., .suffix = ".", envir = caller_env()) {
+    dots <- enexprs(...)
+    for (k in names(dots))
+        if (!identical(envir[[k]], dots[[k]]))
+            warning("'", k, "' is ignored", .suffix)
+}
+modified <- within(list(), {
+    diag <- function(x = 1, nrow, ncol, names = TRUE) {
+        if (!is_lp_var(x))
+            return(base::diag(x, nrow, ncol, names))
+        if (!missing(nrow) || !missing(ncol))
+            warning("'nrow' and 'ncol' are ignored for linear variables.")
+        if (!isTRUE(names))
+            warning("'names' is ignored for linear variables.")
+
+        x[base::diag(x$ind)]
+    }
+    apply <- function(X, MARGIN, FUN, ..., simplify = TRUE) {
+
+        if (!is_lp_var(X))
+            return(base::apply(X, MARGIN, FUN, ..., simplify))
+
+        if (!isTRUE(simplify))
+            warning("Argument 'simplify' is ignored.")
+
+        if (length(MARGIN) != 1)
+            stop("Multiple margins are unsupported in 'apply' for variables.")
+
+        if (MARGIN < 1 || MARGIN > length(dim(X)))
+            stop("'MARGIN' does not match dim(X)")
+
+        coef <- matrix(ncol = ncol(X$coef), nrow = dim(X)[MARGIN])
+        add <- numeric(dim(X)[MARGIN])
+
+        for(k in seq_len(dim(X)[MARGIN])) {
+            ind <- sapply(dim(X), seq_len, simplify = FALSE)
+            ind[MARGIN] <- k
+            y <- do.call(`[.lp_var`, c(list(X), ind))
+            z <- FUN(y, ...)
+            if (length(z$add) != 1L)
+                stop("Applied function must return a single value.")
+            coef[k, ] <- z$coef
+            add[k] <- z$add
+        }
+
+        X$coef <- coef
+        X$add <- add
+        return(X)
+    }
+    rowSums  <- function(x, na.rm = FALSE, dims = 1) {
+        if (!is_lp_var(x))
+            return(base::rowSums(x, na.rm, dims))
+        warn_changed_args(
+            na.rm = FALSE,
+            dims = 1,
+            .suffix = " for linear variables."
+        )
+        apply(x, 1L, sum)
+    }
+    rowMeans <- function(x, na.rm = FALSE, dims = 1) {
+        if (!is_lp_var(x))
+            return(base::rowMeans(x, na.rm, dims))
+        warn_changed_args(
+            na.rm = FALSE,
+            dims = 1,
+            .suffix = " for linear variables."
+        )
+        apply(x, 1L, mean)
+    }
+    colSums  <- function(x, na.rm = FALSE, dims = 1) {
+        if (!is_lp_var(x))
+            return(base::colSums(x, na.rm, dims))
+        warn_changed_args(
+            na.rm = FALSE,
+            dims = 1,
+            .suffix = " for linear variables."
+        )
+        apply(x, 2L, sum)
+    }
+    colMeans <- function(x, na.rm = FALSE, dims = 1) {
+        if (!is_lp_var(x))
+            return(base::colMeans(x, na.rm, dims))
+        warn_changed_args(
+            na.rm = FALSE,
+            dims = 1,
+            .suffix = " for linear variables."
+        )
+        apply(x, 2L, mean)
+    }
+})
+
+
 #' Define a parameter for a linear problem.
 #' @description
 #' Automatically set the dimensions and names of a parameter, based on
@@ -94,17 +186,26 @@ update_bounds <- function(x, varlist) {
 #'
 #' @param x Coefficients for the parameter.
 #' @param ... Sets to index the parameter.
+#' @param byrow If there are 2 sets in \code{...}, whether to fill
+#' the matrix by rows. Otherwise filled by columns
 #'
 #' @return Named array.
 #' @export
 #'
 #' @examples
-#'
+#' factory <- c("A", "B")
+#' market <- c(1:3)
+#' transport_cost <- parameter(c(
+#'     3, 4, 2,
+#'     6, 2, 5
+#' ), factory, market)
 parameter <- function(x, ..., byrow = FALSE) {
     if (...length() == 0L)
         stop("Parameter does not have any sets.")
     sets <- dots_list(..., .named = TRUE)
-    if (length(x) != prod(lengths(sets)))
+    if (length(x) == 1L)
+        x <- rep(x, prod(lengths(sets)))
+    else if (length(x) != prod(lengths(sets)))
         stop("Dimensions of the parameter don't match dimensions of the sets.")
 
     if (byrow) {
@@ -166,6 +267,9 @@ sum_for <- function(..., .env = caller_env()) {
 #' @export
 #'
 #' @examples
+#' lp <- easylp$new()
+#' lp$var("x", letters[1:2], 1:3, lower=1, integer=TRUE)
+#' example_values(lp$variables$x)
 example_values <- function(x, max_value = 100) {
     stopifnot(is_lp_var(x), length(max_value) == 1L)
     max_value <- abs(max_value)

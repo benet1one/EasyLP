@@ -8,7 +8,7 @@ library(rlang)
 #' Object containing all the information about a linear problem, as well
 #' as functions to define, modify, and solve it.
 #'
-#' @field pretty_solution Optimal values for each variable, with
+#' @field solution Optimal values for each variable, with
 #' the sets they were defined with.
 #' @field pretty_constraints Constraint matrix, including direction (dir)
 #' and right-hand-side (rhs).
@@ -21,18 +21,19 @@ library(rlang)
 #' second column is the current value,
 #' and third column is the upper bound.
 #' @field variables List of variables included.
-#' @field nvar Actual number of variables, \code{sum(lengths(variables))}.
 #' @field constraint List including the constraint matrix 'mat',
 #' a vector of directions 'dir', and a vector of right-hand-side values 'rhs'.
+#' @field nvar Actual number of variables, \code{sum(lengths(variables))}.
+#' @field ncon Number of constraints.
+#' @field direction Character indicating whether to minimize 'min' or maximize
+#' 'max' the objective function. Automatically changed when defining
+#' objective with \code{easylp$min(), easylp$max()}
 #' @field objective_fun Vector of coefficients for the objective function.
 #' @field objective_add Optional value to add to the objective value.
-#' @field direction Character indicating whether to minimize 'min' or maximize
-#' 'max' the objective function.
+#' Automatically set when there's an added/subtracted constant in the objective function.
+#' @field objective_value Value of the objective function with the optimal solution.
 #' @field status Character indicating the status of the problem. Initialized as
 #' 'unsolved'. Changes when solving the problem using \code{easylp$solve()}.
-#' @field objective_value Value of the objective function with the optimal solution.
-#' @field solution Vector containing the optimal values for the variables.
-#' See \link{easylp$pretty_solution()} for a better representation of the solution.
 #' @field pointer Pointer to an lpSolveAPI object.
 #' See more at \url{https://lpsolve.sourceforge.net/5.5/}.
 #'
@@ -56,7 +57,6 @@ public = {list(
 
     status = "unsolved",
     objective_value = NA_real_,
-    solution = numeric(),
     pointer = NULL,
 
     #' @description
@@ -146,7 +146,7 @@ public = {list(
         self$objective_fun <- c(self$objective_fun, numeric(len) |> setNames(nams))
 
         # Update solution
-        self$solution <- c(self$solution, numeric(len) |> setNames(nams))
+        private$sol <- c(private$sol, numeric(len) |> setNames(nams))
         if (lower > 0 || upper < 0)
             self$reset_solution()
 
@@ -171,14 +171,12 @@ public = {list(
     },
     #' @description
     #' Define constraints.
-    #'
     #' @param ... Constraints. See \code{vignette("constraints")}. Can be named.
     #' @param expr_list Optionally, a list of expressions representing constraints.
-    #' @param .env Environment where non-variables should be evaluated.
-    #'
+    #' @param envir Used for recursion, do not change.
     #' @export
     # #' @example inst/examples/cons.R
-    con = function(..., expr_list = list(), envir = self$envir) {
+    con = function(..., expr_list = list(), envir = private$envir()) {
         dots <- c(enexprs(...), expr_list)
         for (k in seq_along(dots)) {
             expr <- inside(dots[[k]])
@@ -204,24 +202,24 @@ public = {list(
     },
     #' @description
     #' Define objective function for a minimization problem.
-    #' Uses the same syntax as constraints.
+    #' @param objective Uses the same syntax as constraints.
     #' Must be a single value, so use \code{sum()} when needed.
     min = function(objective) {
         self$direction <- "min"
-        private$obj(enexpr(objective), envir = self$envir)
+        private$obj(enexpr(objective), envir = private$envir())
     },
     #' @description
     #' Define objective function for a maximization problem.
-    #' Uses the same syntax as constraints.
+    #' @param objective Uses the same syntax as constraints.
     #' Must be a single value, so use \code{sum()} when needed.
     max = function(objective) {
         self$direction <- "max"
-        private$obj(enexpr(objective), envir = self$envir)
+        private$obj(enexpr(objective), envir = private$envir())
     },
     #' @description
     #' Find an optimal solution.
     #' @param ... Arguments passed on to \code{lpSolveAPI::lp.control()}.
-    #' See \code{\link[lpSolveAPI]{lp.control.options}}
+    #' See \code{\link[lpSolveAPI]{lp.control.options}}.
     solve = function(...) {
 
         if (self$nvar == 0L)
@@ -231,6 +229,7 @@ public = {list(
         if (!is.element(self$direction, c("min", "max")))
             stop("Direction must be either 'min' or 'max'.")
 
+        # try(delete.lp(self$pointer), silent = TRUE)
         prob <- make.lp(nrow = 0, ncol = self$nvar)
         set.objfn(prob, self$objective_fun)
         lp.control(prob, sense = self$direction, ...)
@@ -250,7 +249,7 @@ public = {list(
         status <- solve(prob)
         objval <- get.objective(prob) |> large_to_infinity()
         self$objective_value <- objval + self$objective_add
-        self$solution[] <- get.variables(prob) |> large_to_infinity()
+        private$sol[] <- get.variables(prob) |> large_to_infinity()
         self$status <- switch(
             as.character(status),
             "0" = "optimal",
@@ -298,11 +297,16 @@ public = {list(
     #' @param max0 Upper bound for 'x' when 'binary == 0'
     #' @param min1 Lower bound for 'x' when 'binary == 1'
     #' @param min0 Lower bound for 'x' when 'binary == 0'
+    #' @details
+    #' By default, 'x' is bounded between it's lower and upper bound when
+    #' 'binary == 1', and it's bounded to it's lower value when
+    #' 'binary == 0'. If 'x' is integer, you usually want to set 'min0' to
+    #' 1, to ensure 'x != 0' when 'binary == 1'.
     associate = function(x, binary,
                          max1 = x$bound[2L], max0 = x$bound[1L],
                          min1 = x$bound[1L], min0 = x$bound[1L]) {
 
-        x <- eval(enexpr(x), envir = self$envir)
+        x <- eval(enexpr(x), envir = private$envir())
         x <- update_bounds(x, self$variables)
 
         stopifnot(length(max1) == 1L, length(max0) == 1L,
@@ -310,7 +314,7 @@ public = {list(
                   is.finite(max1), is.finite(max0),
                   is.finite(min1), is.finite(min0))
 
-        b <- eval(enexpr(binary), envir = self$envir)
+        b <- eval(enexpr(binary), envir = private$envir())
 
         if (!b$binary)
             warning("Variable '", format(enexpr(binary)), "' is not binary.",
@@ -331,12 +335,13 @@ public = {list(
     #' Checks if the current solution is feasible and resets it otherwise.
     #' This function should be used every time you manually change a
     #' value in the constraint matrix or right-hand-side.
+    #' @param tol Tolerance used for inequalities.
     check_feasible = function(tol = 2e-8) {
 
         if (self$status == "unsolved")
             return(self)
 
-        feas <- private$feasible()
+        feas <- private$feasible(tol)
 
         if (any(!feas)) {
             unfeas <- paste(names(feas)[!feas], collapse = ",")
@@ -366,7 +371,7 @@ public = {list(
     #' The pointer to the lpSolveAPI model is kept. Used internally.
     reset_solution = function() {
         self$status <- "unsolved"
-        self$solution[] <- 0
+        private$sol[] <- 0
         self$objective_value <- NA_real_
         invisible(self)
     },
@@ -374,7 +379,9 @@ public = {list(
     #' @description
     #' Check if an operation is valid, using the problem's variables.
     #' Supports 'for' syntax used in constraints.
-    test = function(expr, envir = self$envir) {
+    #' @param expr Expression to evaluate. Supports !!injection.
+    #' @param envir Used for recursion, do not change.
+    test = function(expr, envir = private$envir()) {
         expr <- enexpr(expr)
         if (expr[[1L]] == quote(`for`)) {
             split <- for_split(expr, envir = envir)
@@ -384,6 +391,9 @@ public = {list(
         eval(expr, envir)
     },
 
+    #' @description
+    #' Print relevant information about a linear problem:
+    #' status, objective value, and solution.
     print = function() {
         cat("Easy Linear Problem \nStatus:", self$status)
         if (self$status != "optimal")
@@ -396,17 +406,18 @@ public = {list(
             cat("", ifelse(add > 0, "+", "-"), abs(add), "=", val)
 
         cat("\n\nSolution:\n")
-        print(self$pretty_solution)
+        print(self$solution)
     },
-    plot = function() {
-        plot(self$pointer)
-        invisible(self)
-    },
+    #' @description
+    #' Delete the problem.
     finalize = function() {
-        try(delete.lp(self$pointer), silent = TRUE)
+        # if (!is.null(self$pointer))
+        #   try(delete.lp(self$pointer), silent = TRUE)
+        # self$pointer <- NULL
     }
 )},
 private = {list(
+    sol = numeric(),
     obj = function(expr, envir) {
         joint_var <- sum(eval(expr, envir))
         self$objective_fun[] <- joint_var$coef
@@ -417,24 +428,28 @@ private = {list(
     feasible = function(tol = 2e-8) {
         list2env(self$constraint, environment())
         stopifnot(nrow(mat) > 0L)
-        lhs <- mat %*% self$solution
+        lhs <- mat %*% private$sol
         nam <- rownames(mat)
         nam[nam == ""] <- which(nam == "")
         compare_tol(lhs, rhs, dir, tol) |> setNames(nam)
+    },
+    envir = function() {
+        modified_env <- as_environment(modified, parent = caller_env(2L))
+        as_environment(self$variables, parent = modified_env)
     }
 )},
 active = {list(
-    envir = function() {
-        as_environment(self$variables, parent = caller_env(2L))
+    ncon = function() {
+        nrow(self$constraint$mat)
     },
-    pretty_solution = function() {
+    solution = function() {
         if (self$status != "optimal")
             stop("Must successfully solve the problem before getting a solution.")
         lapply(self$variables, \(x) {
             if (length(x$ind) == 1L)
-                return(self$solution[x$ind] |> unname())
+                return(private$sol[x$ind] |> unname())
             sol <- x$ind
-            sol[] <- self$solution[x$ind]
+            sol[] <- private$sol[x$ind]
             sol
         })
     },
@@ -450,7 +465,7 @@ active = {list(
             stop("Sensitivity unavailable for problems with integer/binary variables")
         objective <- array(
             dim = c(length(self$objective_fun), 3L),
-            dimnames = list(Variable = names(self$solution),
+            dimnames = list(Variable = names(private$sol),
                             Bound = c("Lower", "Current", "Upper"))
         )
         sens <- get.sensitivity.obj(self$pointer)

@@ -3,17 +3,6 @@
 \name{easylp}
 \alias{easylp}
 \title{Easy Linear Problem}
-\value{
-Array, where rows are variables, first column is the lower bound,
-second column is the current value, and third column is the upper bound.
-
-Array, where rows are variables, first column is the lower bound,
-second column is the current value, and third column is the upper bound.
-
-A named list with the values of each variable.
-
-A character matrix.
-}
 \description{
 Object containing all the information about a linear problem, as well
 as functions to define, modify, and solve it.
@@ -35,28 +24,50 @@ lp$variables
 \describe{
 \item{\code{variables}}{List of variables included.}
 
-\item{\code{nvar}}{Actual number of variables, \code{sum(lengths(variables))}.}
-
 \item{\code{constraint}}{List including the constraint matrix 'mat',
 a vector of directions 'dir', and a vector of right-hand-side values 'rhs'.}
 
-\item{\code{objective_fun}}{Vector of coefficients for the objective function.}
-
-\item{\code{objective_add}}{Optional value to add to the objective value.}
+\item{\code{nvar}}{Actual number of variables, \code{sum(lengths(variables))}.}
 
 \item{\code{direction}}{Character indicating whether to minimize 'min' or maximize
-'max' the objective function.}
+'max' the objective function. Automatically changed when defining
+objective with \code{easylp$min(), easylp$max()}}
+
+\item{\code{objective_fun}}{Vector of coefficients for the objective function.}
+
+\item{\code{objective_add}}{Optional value to add to the objective value.
+Automatically set when there's an added/subtracted constant in the objective function.}
+
+\item{\code{objective_value}}{Value of the objective function with the optimal solution.}
 
 \item{\code{status}}{Character indicating the status of the problem. Initialized as
 'unsolved'. Changes when solving the problem using \code{easylp$solve()}.}
 
-\item{\code{objective_value}}{Value of the objective function with the optimal solution.}
-
-\item{\code{solution}}{Vector containing the optimal values for the variables.
-See \link{easylp$pretty_solution()} for a better representation of the solution.}
-
 \item{\code{pointer}}{Pointer to an lpSolveAPI object.
 See more at \url{https://lpsolve.sourceforge.net/5.5/}.}
+}
+\if{html}{\out{</div>}}
+}
+\section{Active bindings}{
+\if{html}{\out{<div class="r6-active-bindings">}}
+\describe{
+\item{\code{solution}}{Optimal values for each variable, with
+the sets they were defined with.}
+
+\item{\code{pretty_constraints}}{Constraint matrix, including direction (dir)
+and right-hand-side (rhs).}
+
+\item{\code{sensitivity_objective}}{Sensitivity for objective function coefficients.
+Rows are variables, first column is the lower bound,
+second column is the current value,
+and third column is the upper bound.}
+
+\item{\code{sensitivity_rhs}}{Sensitivity for constraint right-hand-side coefficients.
+Rows are variables, first column is the lower bound,
+second column is the current value,
+and third column is the upper bound.}
+
+\item{\code{ncon}}{Number of constraints.}
 }
 \if{html}{\out{</div>}}
 }
@@ -68,17 +79,15 @@ See more at \url{https://lpsolve.sourceforge.net/5.5/}.}
 \item \href{#method-easylp-min}{\code{easylp$min()}}
 \item \href{#method-easylp-max}{\code{easylp$max()}}
 \item \href{#method-easylp-solve}{\code{easylp$solve()}}
+\item \href{#method-easylp-uncon}{\code{easylp$uncon()}}
 \item \href{#method-easylp-associate}{\code{easylp$associate()}}
-\item \href{#method-easylp-sensitivity_objective}{\code{easylp$sensitivity_objective()}}
-\item \href{#method-easylp-sensitivity_rhs}{\code{easylp$sensitivity_rhs()}}
-\item \href{#method-easylp-feasable}{\code{easylp$feasable()}}
-\item \href{#method-easylp-check_feasable}{\code{easylp$check_feasable()}}
+\item \href{#method-easylp-check_feasible}{\code{easylp$check_feasible()}}
 \item \href{#method-easylp-check_solved}{\code{easylp$check_solved()}}
 \item \href{#method-easylp-any_integer}{\code{easylp$any_integer()}}
 \item \href{#method-easylp-reset_solution}{\code{easylp$reset_solution()}}
-\item \href{#method-easylp-.obj}{\code{easylp$.obj()}}
 \item \href{#method-easylp-test}{\code{easylp$test()}}
 \item \href{#method-easylp-print}{\code{easylp$print()}}
+\item \href{#method-easylp-finalize}{\code{easylp$finalize()}}
 \item \href{#method-easylp-clone}{\code{easylp$clone()}}
 }
 }
@@ -136,7 +145,7 @@ lp$variables
 \subsection{Method \code{con()}}{
 Define constraints.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{easylp$con(..., expr_list = list(), envir = self$envir)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{easylp$con(..., expr_list = list(), envir = private$envir())}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
@@ -146,7 +155,7 @@ Define constraints.
 
 \item{\code{expr_list}}{Optionally, a list of expressions representing constraints.}
 
-\item{\code{.env}}{Environment where non-variables should be evaluated.}
+\item{\code{envir}}{Used for recursion, do not change.}
 }
 \if{html}{\out{</div>}}
 }
@@ -156,24 +165,36 @@ Define constraints.
 \if{latex}{\out{\hypertarget{method-easylp-min}{}}}
 \subsection{Method \code{min()}}{
 Define objective function for a minimization problem.
-Uses the same syntax as constraints.
-Must be a single value, so use \code{sum()} when needed.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{easylp$min(objective)}\if{html}{\out{</div>}}
 }
 
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{objective}}{Uses the same syntax as constraints.
+Must be a single value, so use \code{sum()} when needed.}
+}
+\if{html}{\out{</div>}}
+}
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-easylp-max"></a>}}
 \if{latex}{\out{\hypertarget{method-easylp-max}{}}}
 \subsection{Method \code{max()}}{
 Define objective function for a maximization problem.
-Uses the same syntax as constraints.
-Must be a single value, so use \code{sum()} when needed.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{easylp$max(objective)}\if{html}{\out{</div>}}
 }
 
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{objective}}{Uses the same syntax as constraints.
+Must be a single value, so use \code{sum()} when needed.}
+}
+\if{html}{\out{</div>}}
+}
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-easylp-solve"></a>}}
@@ -188,7 +209,25 @@ Find an optimal solution.
 \if{html}{\out{<div class="arguments">}}
 \describe{
 \item{\code{...}}{Arguments passed on to \code{lpSolveAPI::lp.control()}.
-See \code{\link[lpSolveAPI]{lp.control.options}}}
+See \code{\link[lpSolveAPI]{lp.control.options}}.}
+}
+\if{html}{\out{</div>}}
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-easylp-uncon"></a>}}
+\if{latex}{\out{\hypertarget{method-easylp-uncon}{}}}
+\subsection{Method \code{uncon()}}{
+Remove constraints.
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{easylp$uncon(name)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{name}}{Character vector containing the (unindexed) name of
+the constraints to remove.}
 }
 \if{html}{\out{</div>}}
 }
@@ -197,61 +236,63 @@ See \code{\link[lpSolveAPI]{lp.control.options}}}
 \if{html}{\out{<a id="method-easylp-associate"></a>}}
 \if{latex}{\out{\hypertarget{method-easylp-associate}{}}}
 \subsection{Method \code{associate()}}{
+Associate a numeric variable with a binary variable.
+It's recommended to set both lower and upper bound for the
+numeric variable before associating it to a binary variable.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{easylp$associate(
   x,
   binary,
   max1 = x$bound[2L],
   max0 = x$bound[1L],
-  min1 = x$bound[1L] + 1L,
+  min1 = x$bound[1L],
   min0 = x$bound[1L]
 )}\if{html}{\out{</div>}}
 }
 
-}
-\if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-easylp-sensitivity_objective"></a>}}
-\if{latex}{\out{\hypertarget{method-easylp-sensitivity_objective}{}}}
-\subsection{Method \code{sensitivity_objective()}}{
-Compute sensitivity for objective function coefficients.
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{easylp$sensitivity_objective()}\if{html}{\out{</div>}}
-}
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{x}}{Numeric variable.}
 
-}
-\if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-easylp-sensitivity_rhs"></a>}}
-\if{latex}{\out{\hypertarget{method-easylp-sensitivity_rhs}{}}}
-\subsection{Method \code{sensitivity_rhs()}}{
-Compute sensitivity for constraint right-hand-side coefficients.
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{easylp$sensitivity_rhs()}\if{html}{\out{</div>}}
-}
+\item{\code{binary}}{Binary variable.}
 
+\item{\code{max1}}{Upper bound for 'x' when 'binary == 1'}
+
+\item{\code{max0}}{Upper bound for 'x' when 'binary == 0'}
+
+\item{\code{min1}}{Lower bound for 'x' when 'binary == 1'}
+
+\item{\code{min0}}{Lower bound for 'x' when 'binary == 0'}
+}
+\if{html}{\out{</div>}}
+}
 \subsection{Details}{
-For technical reasons, this function can not be used if there are
-integer or binary variables.
+By default, 'x' is bounded between it's lower and upper bound when
+'binary == 1', and it's bounded to it's lower value when
+'binary == 0'. If 'x' is integer, you usually want to set 'min0' to
+1, to ensure 'x != 0' when 'binary == 1'.
 }
 
 }
 \if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-easylp-feasable"></a>}}
-\if{latex}{\out{\hypertarget{method-easylp-feasable}{}}}
-\subsection{Method \code{feasable()}}{
+\if{html}{\out{<a id="method-easylp-check_feasible"></a>}}
+\if{latex}{\out{\hypertarget{method-easylp-check_feasible}{}}}
+\subsection{Method \code{check_feasible()}}{
+Checks if the current solution is feasible and resets it otherwise.
+This function should be used every time you manually change a
+value in the constraint matrix or right-hand-side.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{easylp$feasable(tol = 2e-08)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{easylp$check_feasible(tol = 2e-08)}\if{html}{\out{</div>}}
 }
 
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{tol}}{Tolerance used for inequalities.}
 }
-\if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-easylp-check_feasable"></a>}}
-\if{latex}{\out{\hypertarget{method-easylp-check_feasable}{}}}
-\subsection{Method \code{check_feasable()}}{
-Checks if the current solution is feasable and resets it otherwise.
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{easylp$check_feasable()}\if{html}{\out{</div>}}
+\if{html}{\out{</div>}}
 }
-
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-easylp-check_solved"></a>}}
@@ -286,30 +327,43 @@ The pointer to the lpSolveAPI model is kept. Used internally.
 
 }
 \if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-easylp-.obj"></a>}}
-\if{latex}{\out{\hypertarget{method-easylp-.obj}{}}}
-\subsection{Method \code{.obj()}}{
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{easylp$.obj(expr)}\if{html}{\out{</div>}}
-}
-
-}
-\if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-easylp-test"></a>}}
 \if{latex}{\out{\hypertarget{method-easylp-test}{}}}
 \subsection{Method \code{test()}}{
 Check if an operation is valid, using the problem's variables.
+Supports 'for' syntax used in constraints.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{easylp$test(expr, envir = self$envir)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{easylp$test(expr, envir = private$envir())}\if{html}{\out{</div>}}
 }
 
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{expr}}{Expression to evaluate. Supports !!injection.}
+
+\item{\code{envir}}{Used for recursion, do not change.}
+}
+\if{html}{\out{</div>}}
+}
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-easylp-print"></a>}}
 \if{latex}{\out{\hypertarget{method-easylp-print}{}}}
 \subsection{Method \code{print()}}{
+Print relevant information about a linear problem:
+status, objective value, and solution.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{easylp$print()}\if{html}{\out{</div>}}
+}
+
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-easylp-finalize"></a>}}
+\if{latex}{\out{\hypertarget{method-easylp-finalize}{}}}
+\subsection{Method \code{finalize()}}{
+Delete the problem.
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{easylp$finalize()}\if{html}{\out{</div>}}
 }
 
 }

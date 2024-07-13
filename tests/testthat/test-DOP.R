@@ -46,8 +46,8 @@ lp$con(
 )
 
 lp$solve()
-print(lp)
+# print(lp)
 
-print(lp$sensitivity_objective)
-print(lp$sensitivity_rhs)
+# print(lp$sensitivity_objective)
+# print(lp$sensitivity_rhs)
 

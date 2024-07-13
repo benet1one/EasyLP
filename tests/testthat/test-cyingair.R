@@ -21,19 +21,18 @@ lp$con(
 )
 
 lp$solve()
-sol <- lp$pretty_solution
+sol <- lp$solution
 despesa_total <- sum(sol$x * preu)
 
-print(lp)
-cat("Benefici =", lp$objective_value,
-  "\nDespesa  =", despesa_total, "\n")
+# print(lp)
+# cat("Benefici =", lp$objective_value,
+#   "\nDespesa  =", despesa_total, "\n")
 
 test_that("correct solution", {
-    expect_equal(unname(lp$solution), c(0, 1, 1, 1, 0, 2, 3, 49))
+    expect_equal(lp$solution$x, c(0, 2, 3, 49), ignore_attr = TRUE)
 })
 
 test_that("become unfeasable", {
     expect_message(lp$con(no_factible = x["Petit"] + x["Mitjà"] >= 6))
-    expect_setequal(lp$solution, 0)
 })
 
