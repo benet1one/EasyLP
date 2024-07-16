@@ -32,7 +32,7 @@ name_variable <- function(name, sets) {
     if (length(sets) == 1L && length(sets[[1]]) == 1L)
         return(name)
     grid <- do.call(expand.grid, sets)
-    index <- .mapply(dots = grid, FUN = paste, MoreArgs = list(sep = ", "))
+    index <- .mapply(dots = grid, FUN = paste, MoreArgs = list(sep = ","))
     paste0(name, "[", index, "]")
 }
 name_constraint <- function(constraint, name, previous = character()) {
@@ -93,6 +93,12 @@ warn_changed_args <- function(..., .suffix = ".", envir = caller_env()) {
         if (!identical(envir[[k]], dots[[k]]))
             warning("'", k, "' is ignored", .suffix)
 }
+error_field_assign <- function(message = "Cannot modify this field.") {
+    env <- caller_env() |> as.list()
+    if (!is_missing(env[[1L]]))
+        stop(message)
+}
+
 modified <- within(list(), {
     diag <- function(x = 1, nrow, ncol, names = TRUE) {
         if (!is_lp_var(x))
@@ -102,6 +108,8 @@ modified <- within(list(), {
         if (!isTRUE(names))
             warning("'names' is ignored for linear variables.")
 
+        x$raw <- FALSE
+        x$indexable <- FALSE
         x[base::diag(x$ind)]
     }
     apply <- function(X, MARGIN, FUN, ..., simplify = TRUE) {
@@ -109,31 +117,31 @@ modified <- within(list(), {
         if (!is_lp_var(X))
             return(base::apply(X, MARGIN, FUN, ..., simplify))
 
-        if (!isTRUE(simplify))
-            warning("Argument 'simplify' is ignored.")
+        warn_changed_args(simplify = TRUE)
 
-        if (length(MARGIN) != 1)
-            stop("Multiple margins are unsupported in 'apply' for variables.")
-
-        if (MARGIN < 1 || MARGIN > length(dim(X)))
+        if (any(MARGIN < 1) || any(MARGIN > length(dim(X))))
             stop("'MARGIN' does not match dim(X)")
 
-        coef <- matrix(ncol = ncol(X$coef), nrow = dim(X)[MARGIN])
-        add <- numeric(dim(X)[MARGIN])
+        grid_cols <- lapply(dim(X)[MARGIN], seq_len)
+        names(grid_cols) <- MARGIN
+        grid <- expand.grid(grid_cols)
 
-        for(k in seq_len(dim(X)[MARGIN])) {
-            ind <- sapply(dim(X), seq_len, simplify = FALSE)
-            ind[MARGIN] <- k
+        coef <- matrix(ncol = ncol(X$coef), nrow = nrow(grid))
+        add <- numeric(nrow(grid))
+
+        for (k in 1:nrow(grid)) {
+            ind <- lapply(dim(X), seq_len)
+            ind[MARGIN] <- grid[k, ]
             y <- do.call(`[.lp_var`, c(list(X), ind))
             z <- FUN(y, ...)
-            if (length(z$add) != 1L)
-                stop("Applied function must return a single value.")
             coef[k, ] <- z$coef
             add[k] <- z$add
         }
 
         X$coef <- coef
         X$add <- add
+        X$raw <- FALSE
+        X$indexable <- FALSE
         return(X)
     }
     rowSums  <- function(x, na.rm = FALSE, dims = 1) {

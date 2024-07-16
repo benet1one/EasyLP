@@ -20,4 +20,82 @@ library(easylp)
 
 # What is EasyLP?
 
-EasyLP is a workflow for defining, solving, and presenting complex linear problems. This package is not a solver. If you're looking for a function that takes a vector of coefficients and a constraint matrix, check out [lpSolve](https://cran.r-project.org/web/packages/lpSolve/index.html).
+EasyLP is a workflow for defining, solving, and presenting complex linear problems. This package is not a solver. If you're looking for a solver that takes a vector of coefficients and a constraint matrix, check out [lpSolve](https://cran.r-project.org/web/packages/lpSolve/index.html).
+
+EasyLP has 3 strong suits:
+
+-   It supports multi-dimensional variables.
+-   The syntax is comfortable, readable, and flexible.
+-   The results are easy to understand and use.
+
+Allow me to demonstrate these features using examples.
+
+# Examples
+
+## Transportation Problem
+
+The company WeaR sells t-shirts with the R logo. They are made in 3 different factories, and sold in 4 different markets.
+
+The variable in a transportation problem is the quantity transported from each source to each destination, and the objective is to minimize transportation costs.
+
+```{r}
+# Sets
+factory <- c("A", "B", "C")
+market <- 1:4
+
+# Parameters
+# The function 'parameter' simply determines and names the dimensions of an array.
+supply <- c(50, 30, 45) |> parameter(factory)
+demand <- c(30, 25, 40, 15) |> parameter(market)
+cost <- c(
+    51, 89, 64, 32, 
+    28, 87, 66, 48, 
+    82, 78, 66, 29
+) |> parameter(factory, market, byrow=TRUE)
+
+lp <- easylp$new()
+lp$var("x", factory, market, lower=0, integer=TRUE)  # Variable
+lp$min(sum(cost*x))  # Objective Function
+lp$con(  
+    make =  for(f in factory) sum(x[f, ]) <= supply[f],  # Supply Constraint
+    sell =  for(m in market)  sum(x[, m]) >= demand[m]   # Demand Constraint
+)
+
+lp$solve()
+lp
+```
+
+After seeing their amazing profits, WeaR decide to start producing caps too. Now the variable will contain 3 sets: Factory, Market and Product.
+
+```{r}
+factory <- c("A", "B", "C")
+market <- 1:4
+product <- c("shirts", "caps")
+
+supply <- c(
+    50, 20,
+    30, 35,
+    45, 30
+) |> parameter(factory, product, byrow=TRUE)
+
+demand <- c(
+    30, 25,
+    25, 10,
+    40, 30,
+    15, 10
+) |> parameter(market, product, byrow=TRUE)
+
+cost <- round(runif(3*4*2, min=10, max=90)) |> 
+    parameter(factory, market, product)
+
+lp <- easylp$new()
+lp$var("x", factory, market, product, lower=0, integer=TRUE)
+lp$min(sum(cost*x))
+lp$con(
+    make =  for(f in factory) for(p in product) sum(x[f, , p]) <= supply[f, p],
+    sell =  for(m in market)  for(p in product) sum(x[, m, p]) >= demand[m, p]
+)
+
+lp$solve()
+lp
+```

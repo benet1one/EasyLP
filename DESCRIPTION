@@ -1,11 +1,11 @@
 Package: easylp
 Type: Package
 Title: Define Complex Linear Problems 
-Version: 0.2.0
+Version: 0.2.1
 Author: benet
 Maintainer: Hi I study statistics :) <benet1one@gmail.com>
-Description: Establishes a powerful syntax to define linear problems
-License: MIT
+Description: Establishes a powerful syntax to define and solve linear problems.
+License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true
 Suggests: 

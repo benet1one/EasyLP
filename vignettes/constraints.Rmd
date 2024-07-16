@@ -10,7 +10,7 @@ vignette: >
 ```{r, include = FALSE}
 knitr::opts_chunk$set(
   collapse = TRUE,
-  comment = "#>"
+  comment = "#"
 )
 ```
 
@@ -37,8 +37,8 @@ As you can see, we don't need to put the variables on the left hand side and the
 
 ```{r}
 lp$con(x + 3*(y + 1) >= 0)
-#> Equivalent to
-#> lp$con(x + 3*y + 3 >= 0)
+# Equivalent to
+# lp$con(x + 3*y + 3 >= 0)
 ```
 
 Now we can define an equality constraint. And we'll name it, for good measure. Notice how the single equal `=` separates the name from the constraint, and the double equal `==` is used to represent equality. Just like base R.
@@ -47,12 +47,15 @@ Now we can define an equality constraint. And we'll name it, for good measure. N
 lp$con(last =  x + y == 4)
 ```
 
-You may have seen linear constraints represented as $Ax\lesseqgtr b$. EasyLP stores constraints in this way. You can see them using `lp$pretty_constraint` or, alternatively, `lp$constraint`.
+You may have seen linear constraints represented as $Ax\lesseqgtr b$. EasyLP stores constraints in this way. You can see them using `lp$constraint`.
 
 ```{r}
-lp$pretty_constraints
-#> The following would show how constraints are actually stored internally.
-#> lp$constraint
+lp$constraint
+
+# This object is actually a list with these 3 fields:
+# lp$constraint$mat
+# lp$constraint$dir
+# lp$constraint$rhs
 ```
 
 ## Bounds
@@ -66,7 +69,7 @@ lp$var("z", lower=0, upper=10)
 Constraints can be used to achieve the same, but it's not recommended.
 
 ```{r}
-#> Do not use constraints when you can use bounds!
+# Do not use constraints when you can use bounds!
 lp$con(z >= 0, z <= 10)
 ```
 
@@ -103,16 +106,6 @@ lp1$con(
 )
 ```
 
-We're told we need to produce a minimum of 200 products, between shirts and pants. Thanks to the awesome developer of EasyLP, we can use `sum` with multiple arguments.
-
-```{r}
-lp1$con(total =  sum(shirts, pants) >= 200)
-#> Equivalent to
-#> lp1$con(total =  sum(shirts) + sum(pants) >= 200)
-
-lp1$pretty_constraints
-```
-
 ### Indexing
 
 Variables can be indexed just like you would in R. It's possible to use numbers or names, if the variable has any. In this case, the names of the variables are {A, B}, because they're defined for each factory.
@@ -120,7 +113,7 @@ Variables can be indexed just like you would in R. It's possible to use numbers 
 ```{r}
 lp1 <- lp$clone()
 lp1$con(shirts[1] + pants["A"] <= 160)
-lp1$pretty_constraints
+lp1$constraint
 ```
 
 ### One line, multiple constraints
@@ -157,9 +150,9 @@ lp3$con(name =  shirts >= pants)
 Notice the only difference between the three is how the constraints are named. My personal favorite is the second method, because it's shorter than the first, and more intuitive than the third.
 
 ```{r}
-lp1$pretty_constraints
-lp2$pretty_constraints
-lp3$pretty_constraints
+lp1$constraint
+lp2$constraint
+lp3$constraint
 ```
 
 ## Matrix Variables
@@ -191,7 +184,7 @@ lp$con(
     cap =  for(i in factory) sum(t[i, ]) <= capacity[i],
     dem =  for(j in market)  sum(t[, j]) >= demand[j]
 )
-lp$pretty_constraints
+lp$constraint
 ```
 
 Another way to define these constraints is by using `sum_for`. This function is discussed in depth in `vignette("objective")`.
@@ -236,7 +229,7 @@ Be aware! If constraints are defined with variables on the right-hand-side, the 
 lp <- easylp$new()
 lp$var("x")
 lp$con(2 >= x)
-lp$pretty_constraints
+lp$constraint
 ```
 
 ## Removing Constraints
@@ -252,7 +245,7 @@ lp$con(
     average =  mean(x) >= 3
 )
 lp$solve()
-lp$pretty_constraints
+lp$constraint
 lp$status
 ```
 
@@ -262,7 +255,7 @@ All x must be lesser than 2, but the mean must be greater than 3. That's impossi
 lp1 <- lp$clone()
 lp1$uncon("limit")
 lp1$solve()
-lp1$pretty_constraints
+lp1$constraint
 lp1$status
 ```
 
@@ -305,9 +298,9 @@ This is the purpose of the function `easylp$associate()`.
 ```{r}
 lp1 <- lp$clone()
 lp1$associate(invest, chosen, 
-              min1 = 1500, max1 = 5000, #> Bounds when 'chosen == 1'
-              min0 = 0,    max0 = 0)    #> Bounds when 'chosen == 0'
-lp1$pretty_constraints
+              min1 = 1500, max1 = 5000, # Bounds when 'chosen == 1'
+              min0 = 0,    max0 = 0)    # Bounds when 'chosen == 0'
+lp1$constraint
 ```
 
 As you can see, it simply defines constraints. It can be done manually if you know what you're doing.
@@ -318,5 +311,22 @@ lp2$con(
     invest <= 5000*chosen,
     invest >= 1500*chosen
 )
-lp2$pretty_constraints
+lp2$constraint
+```
+
+## List of Supported Functions
+
+These functions can be used on linear variables. Here, `easylp$test()` is useful to know if the syntax is valid.
+
+```{r}
+lp <- easylp$new()
+lp$var("x", 1:2, 1:2)
+lp$test(
+    diag(x),
+    apply(x, 1, sum),
+    rowSums(x),
+    colSums(x),
+    rowMeans(x),
+    colMeans(x)
+)
 ```

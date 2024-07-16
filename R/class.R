@@ -10,8 +10,6 @@ library(rlang)
 #'
 #' @field solution Optimal values for each variable, with
 #' the sets they were defined with.
-#' @field pretty_constraints Constraint matrix, including direction (dir)
-#' and right-hand-side (rhs).
 #' @field sensitivity_objective Sensitivity for objective function coefficients.
 #' Rows are variables, first column is the lower bound,
 #' second column is the current value,
@@ -23,8 +21,9 @@ library(rlang)
 #' @field variables List of variables included.
 #' @field constraint List including the constraint matrix 'mat',
 #' a vector of directions 'dir', and a vector of right-hand-side values 'rhs'.
+#' Printed as a single matrix.
 #' @field nvar Actual number of variables, \code{sum(lengths(variables))}.
-#' @field ncon Number of constraints.
+#' @field ncon Number of constraints. \code{nrow(constraint$mat)}
 #' @field direction Character indicating whether to minimize 'min' or maximize
 #' 'max' the objective function. Automatically changed when defining
 #' objective with \code{easylp$min(), easylp$max()}
@@ -34,7 +33,8 @@ library(rlang)
 #' @field objective_value Value of the objective function with the optimal solution.
 #' @field status Character indicating the status of the problem. Initialized as
 #' 'unsolved'. Changes when solving the problem using \code{easylp$solve()}.
-#' @field pointer Pointer to an lpSolveAPI object.
+#' @field pointer Pointer to an lpSolveAPI object. Do not modify it, as
+#' it is redefined every time the problem is solved.
 #' See more at \url{https://lpsolve.sourceforge.net/5.5/}.
 #'
 #' @import R6
@@ -48,7 +48,7 @@ public = {list(
         mat = array(dim = c(0, 0)),
         dir = character(),
         rhs = numeric()
-    ),
+    ) |> structure(class = "lp_con"),
     nvar = 0L,
 
     objective_fun = numeric(),
@@ -161,6 +161,7 @@ public = {list(
             bound = c(Lower = lower, Upper = upper),
             selected = selected,
             indexable = TRUE,
+            raw = TRUE,
             coef = coef,
             add = add
         ) |> structure(class = "lp_var")
@@ -379,16 +380,32 @@ public = {list(
     #' @description
     #' Check if an operation is valid, using the problem's variables.
     #' Supports 'for' syntax used in constraints.
-    #' @param expr Expression to evaluate. Supports !!injection.
+    #' @param expr Expressions to evaluate. Supports !!injection.
     #' @param envir Used for recursion, do not change.
-    test = function(expr, envir = private$envir()) {
-        expr <- enexpr(expr)
-        if (expr[[1L]] == quote(`for`)) {
-            split <- for_split(expr, envir = envir)
-            split <- name_for_split(split, name = names(dots)[k])
-            return(self$test(!!expr, .env = envir))
+    test = function(..., envir = private$envir()) {
+        exprs <- enexprs(...)
+        results <- list()
+        for (expr in exprs) {
+            expr <- enexpr(expr)
+            if (expr[[1L]] == quote(`for`)) {
+                split <- for_split(expr, envir = envir)
+                split <- name_for_split(split, name = names(dots)[k])
+                res <- self$test(!!expr, .env = envir)
+                results <- append(results, list(res))
+                next
+            }
+            res <- tryCatch(eval(expr, envir), error = identity)
+
+            if (is_lp_var(res))
+                colnames(res$coef) <- colnames(self$constraint$mat)
+            else if (is_lp_con(res))
+                colnames(res$mat) <- colnames(self$constraint$mat)
+
+            results <- append(results, list(res))
         }
-        eval(expr, envir)
+
+        names(results) <- names(exprs)
+        results
     },
 
     #' @description
@@ -405,8 +422,11 @@ public = {list(
         if (add != 0)
             cat("", ifelse(add > 0, "+", "-"), abs(add), "=", val)
 
-        cat("\n\nSolution:\n")
-        print(self$solution)
+        cat("\n\nSolution:\n\n")
+        if (length(self$solution) == 1L)
+            print(self$solution[[1L]])
+        else
+            print(self$solution)
     },
     #' @description
     #' Delete the problem.
@@ -439,12 +459,14 @@ private = {list(
     }
 )},
 active = {list(
-    ncon = function() {
-        nrow(self$constraint$mat)
+    ncon = function(arg) {
+        error_field_assign()
+        length(self$constraint$rhs)
     },
-    solution = function() {
+    solution = function(arg) {
+        error_field_assign()
         if (self$status != "optimal")
-            stop("Must successfully solve the problem before getting a solution.")
+            warning("Problem is not optimal.\n")
         lapply(self$variables, \(x) {
             if (length(x$ind) == 1L)
                 return(private$sol[x$ind] |> unname())
@@ -453,13 +475,8 @@ active = {list(
             sol
         })
     },
-    pretty_constraints = function() {
-        mat <- with(self$constraint, cbind(mat, dir=dir, rhs=rhs))
-        tab <- as.table(mat)
-        rownames(tab) <- rownames(mat)
-        tab
-    },
-    sensitivity_objective = function() {
+    sensitivity_objective = function(arg) {
+        error_field_assign()
         stopifnot(self$status == "optimal")
         if (self$any_integer())
             stop("Sensitivity unavailable for problems with integer/binary variables")
@@ -474,7 +491,8 @@ active = {list(
         objective[, "Current"] <- self$objective_fun
         return(objective)
     },
-    sensitivity_rhs = function() {
+    sensitivity_rhs = function(arg) {
+        error_field_assign()
         stopifnot(self$status == "optimal")
         if (self$any_integer())
             stop("Sensitivity unavailable for problems with integer/binary variables")
@@ -484,7 +502,6 @@ active = {list(
                             Bound = c("Lower", "Current", "Upper"))
         )
         sens <- get.sensitivity.rhs(self$pointer)
-        # browser()
         rhs[, "Lower"] <- large_to_infinity(sens$dualsfrom[1:nrow(rhs)])
         rhs[, "Upper"] <- large_to_infinity(sens$dualstill[1:nrow(rhs)])
         rhs[, "Current"] <- self$constraint$rhs

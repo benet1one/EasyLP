@@ -9,6 +9,11 @@ is_lp_con <- function(x) {
 #' @export
 print.lp_var <- function(x, ...) {
 
+    if (!x$raw) {
+        print(x$coef)
+        return(x)
+    }
+
     cat("Linear Programming Variable '", x$name, "'", sep = "")
 
     if (x$binary)
@@ -28,6 +33,7 @@ print.lp_var <- function(x, ...) {
         cat("\n", x$name, " <= ", x$bound[2L], sep = "")
     }
     cat("\n")
+    return(x)
 }
 #' @export
 length.lp_var <- function(x) length(x$ind)
@@ -47,11 +53,18 @@ dim.lp_var <- function(x) dim(x$ind)
 
     x$selected[] <- FALSE
     x$selected[x$ind] <- TRUE
+    x$raw <- FALSE
 
     rows <- is.element(old_ind, x$ind)
     x$coef <- x$coef[rows, , drop = FALSE]
     x$add  <- x$add[rows]
     return(x)
+}
+
+#' @export
+print.lp_con <- function(x, ...) {
+    mat <- with(x, cbind(mat, dir=dir, rhs=rhs))
+    print(mat, quote = FALSE)
 }
 
 horizontal_multiply <- function(x, mult) {
@@ -103,6 +116,8 @@ Ops.lp_var <- function(e1, e2) {
             stop("Operation '", e1, " ", .Generic, " ", e2,
                  "' resulted in NA values")
         }
+
+        x$raw <- FALSE
         return(x)
 
     } else if (is.element(.Generic, compare)) {
@@ -210,6 +225,7 @@ Math.lp_var <- function(x, ...) {
     if (nrow(x$coef) >= 2L)  for (i in 2:nrow(x$coef))
         x$coef[i, ] <- x$coef[i, ] + x$coef[i-1L, ]
 
+    x$raw <- FALSE
     return(x)
 }
 #' @export
@@ -224,6 +240,7 @@ sum.lp_var <- function(x, ..., na.rm = FALSE) {
     x$coef <- matrix(colSums(x$coef), nrow = 1L)
     x$add <- sum(x$add)
     x$indexable <- FALSE
+    x$raw <- FALSE
     return(x)
 }
 #' @export

@@ -25,7 +25,8 @@ lp$variables
 \item{\code{variables}}{List of variables included.}
 
 \item{\code{constraint}}{List including the constraint matrix 'mat',
-a vector of directions 'dir', and a vector of right-hand-side values 'rhs'.}
+a vector of directions 'dir', and a vector of right-hand-side values 'rhs'.
+Printed as a single matrix.}
 
 \item{\code{nvar}}{Actual number of variables, \code{sum(lengths(variables))}.}
 
@@ -43,7 +44,8 @@ Automatically set when there's an added/subtracted constant in the objective fun
 \item{\code{status}}{Character indicating the status of the problem. Initialized as
 'unsolved'. Changes when solving the problem using \code{easylp$solve()}.}
 
-\item{\code{pointer}}{Pointer to an lpSolveAPI object.
+\item{\code{pointer}}{Pointer to an lpSolveAPI object. Do not modify it, as
+it is redefined every time the problem is solved.
 See more at \url{https://lpsolve.sourceforge.net/5.5/}.}
 }
 \if{html}{\out{</div>}}
@@ -53,9 +55,6 @@ See more at \url{https://lpsolve.sourceforge.net/5.5/}.}
 \describe{
 \item{\code{solution}}{Optimal values for each variable, with
 the sets they were defined with.}
-
-\item{\code{pretty_constraints}}{Constraint matrix, including direction (dir)
-and right-hand-side (rhs).}
 
 \item{\code{sensitivity_objective}}{Sensitivity for objective function coefficients.
 Rows are variables, first column is the lower bound,
@@ -67,7 +66,7 @@ Rows are variables, first column is the lower bound,
 second column is the current value,
 and third column is the upper bound.}
 
-\item{\code{ncon}}{Number of constraints.}
+\item{\code{ncon}}{Number of constraints. \code{nrow(constraint$mat)}}
 }
 \if{html}{\out{</div>}}
 }
@@ -333,15 +332,15 @@ The pointer to the lpSolveAPI model is kept. Used internally.
 Check if an operation is valid, using the problem's variables.
 Supports 'for' syntax used in constraints.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{easylp$test(expr, envir = private$envir())}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{easylp$test(..., envir = private$envir())}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{expr}}{Expression to evaluate. Supports !!injection.}
-
 \item{\code{envir}}{Used for recursion, do not change.}
+
+\item{\code{expr}}{Expressions to evaluate. Supports !!injection.}
 }
 \if{html}{\out{</div>}}
 }
