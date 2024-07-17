@@ -1,0 +1,53 @@
+---
+title: "EasyLP: An R package to solve complex linear problems."
+output: 
+    md_document:
+    variant: markdown_github
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Installing
+
+Use `devtools` to install this package from GitHub.
+
+```{r}
+# install.packages("devtools")
+devtools::install_github("benet1one/EasyLP", build_vignettes = TRUE)
+```
+
+# Getting Started
+
+First, create the problem by using `easylp$new()`. Then define variables with `$var()`, set the objective function with `$min()` or `$max()`, and constraint the problem with `$con()`. Then, solve the problem and print the results.
+
+```{r}
+library(easylp)
+lp <- easylp$new()
+lp$var("x")
+lp$var("y")
+lp$max(x + y)
+lp$con(
+    x + 2*y <= 3,
+    y >= 3*x - 2
+)
+
+lp$solve()
+lp
+```
+
+EasyLP supports variable arrays of any dimension. Create sets and assign them to the variable.
+
+```{r}
+
+```
+
+# Learn more with vignettes
+
+Make sure to `build_vignettes = TRUE` and discover everything you can do using the powerful and intuitive syntax.
+
+```{r}
+vignette("easylp")
+vignette("constraints")
+```

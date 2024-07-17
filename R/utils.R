@@ -108,9 +108,10 @@ modified <- within(list(), {
         if (!isTRUE(names))
             warning("'names' is ignored for linear variables.")
 
+        x <- x[base::diag(x$ind)]
         x$raw <- FALSE
         x$indexable <- FALSE
-        x[base::diag(x$ind)]
+        return(x)
     }
     apply <- function(X, MARGIN, FUN, ..., simplify = TRUE) {
 

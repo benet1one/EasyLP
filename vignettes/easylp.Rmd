@@ -30,9 +30,7 @@ EasyLP has 3 strong suits:
 
 Allow me to demonstrate these features using examples.
 
-# Examples
-
-## Transportation Problem
+# Transportation Problem
 
 The company WeaR sells t-shirts with the R logo. They are made in 3 different factories, and sold in 4 different markets.
 
@@ -65,7 +63,110 @@ lp$solve()
 lp
 ```
 
-After seeing their amazing profits, WeaR decide to start producing caps too. Now the variable will contain 3 sets: Factory, Market and Product.
+Let's understand this example in-depth. The first thing that happens is that two sets are created: Factory and Market. Sets are simply names for the parameters and the variables.
+
+```{r}
+factory <- c("A", "B", "C")
+market <- 1:4
+```
+
+Parameters are usually related to one or more sets. Each factory has a supply, and each market has a demand. The function `parameter()` simply names the vector.
+
+```{r}
+supply <- c(50, 30, 45) |> parameter(factory)
+demand <- c(30, 25, 40, 15) |> parameter(market)
+
+print(supply)
+```
+
+Transportation cost is a two-dimensional parameter, in other words, a matrix. The interpretation is the following: `cost[f, m]`is the cost of transporting a t-shirt from factory `f`to market `m`. Here, the function `parameter()` is both determining the dimensions using the sets Factory and Market; and naming them. Use `byrow=TRUE` just like you would when defining a matrix in R.
+
+```{r}
+cost <- c(
+    51, 89, 64, 32, 
+    28, 87, 66, 48, 
+    82, 78, 66, 29
+) |> parameter(factory, market, byrow=TRUE)
+
+print(cost)
+```
+
+It's time to create the problem. EasyLP uses R6 classes for safety. Every command executed modifies the object. You can learn more about them [here](https://adv-r.hadley.nz/r6.html).
+
+```{r}
+lp <- easylp$new()
+```
+
+Before anything else, we must define the variable. The first argument is the variable name. This name is used for the objective function and constraints, so it's better to keep it short: `"x"`.
+
+In this problem `x[f, m]` represents the number of t-shirts transported from factory `f` to market `m`. The dimensions of the variable are determined by using sets.
+
+By default, variables are real and unbounded. Number of t-shirts is a non-negative integer.
+
+```{r}
+lp$var("x",                    # Name
+       factory, market,        # Sets
+       lower=0, integer=TRUE)  # Lower bound and type
+```
+
+To make sure a variable is well defined, we can print it, or ask for some example values.
+
+```{r}
+lp$variables$x
+example_values(lp$variables$x)
+```
+
+Now let's tell the problem what it's objective is. We wish to minimize total transportation cost. If $F$ are the factories and $M$ are the markets:
+
+$$
+\min \sum_{f\in F}\sum_{m\in M} (cost_{fm} \cdot x_{fm})
+$$
+
+EasyLP variables support vectorized operations, using R syntax.
+
+```{r}
+lp$min(sum(cost*x))
+lp$objective_fun
+```
+
+But if you're uncomfortable using this kind of syntax and you prefer one similar to math, I wrote a function just for you! Use `sum_for()`, where named arguments are the indexes of the sum.
+
+```{r}
+lp$min(sum_for(f=factory, m=market, cost[f,m] * x[f,m]))
+lp$objective_fun
+```
+
+Lastly, this problem needs to be constrained. Constraint syntax is very flexible and has it's own `vignette("constraints")`. In the example I decided to demonstrate how `for` can be used inside a constraint. For each factory, the sum of all transported t-shirts is lesser or equal to the factory's supply. For each market, the sum of all transported t-shirts must satisfy the market's demand.
+
+```{r}
+lp$con(  
+    make =  for(f in factory) sum(x[f, ]) <= supply[f],
+    sell =  for(m in market)  sum(x[, m]) >= demand[m]
+)
+```
+
+Using vectorized operations, we can simplify it quite a bit, but it becomes a bit harder to understand.
+
+```{r}
+lp$con(
+    make =  rowSums(x) <= supply,
+    sell =  colSums(x) >= demand
+)
+```
+
+Done! Let's solve the problem and print it. The `print()` method shows status, objective value, and solution.
+
+```{r}
+lp$solve()
+lp
+# lp$status
+# lp$objective_value
+# lp$solution
+```
+
+## Adding a Dimension
+
+After learning to use EasyLP and seeing their amazing profits, WeaR decides to start producing caps too. Now the variable will contain 3 sets: Factory, Market and Product.
 
 ```{r}
 factory <- c("A", "B", "C")

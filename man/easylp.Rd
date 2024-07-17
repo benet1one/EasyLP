@@ -39,11 +39,6 @@ objective with \code{easylp$min(), easylp$max()}}
 \item{\code{objective_add}}{Optional value to add to the objective value.
 Automatically set when there's an added/subtracted constant in the objective function.}
 
-\item{\code{objective_value}}{Value of the objective function with the optimal solution.}
-
-\item{\code{status}}{Character indicating the status of the problem. Initialized as
-'unsolved'. Changes when solving the problem using \code{easylp$solve()}.}
-
 \item{\code{pointer}}{Pointer to an lpSolveAPI object. Do not modify it, as
 it is redefined every time the problem is solved.
 See more at \url{https://lpsolve.sourceforge.net/5.5/}.}
@@ -67,6 +62,11 @@ second column is the current value,
 and third column is the upper bound.}
 
 \item{\code{ncon}}{Number of constraints. \code{nrow(constraint$mat)}}
+
+\item{\code{objective_value}}{Value of the objective function with the optimal solution.}
+
+\item{\code{status}}{Character indicating the status of the problem. Initialized as
+'unsolved'. Changes when solving the problem using \code{easylp$solve()}.}
 }
 \if{html}{\out{</div>}}
 }
@@ -338,9 +338,9 @@ Supports 'for' syntax used in constraints.
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{envir}}{Used for recursion, do not change.}
+\item{\code{...}}{Expressions to evaluate. Supports !!injection.}
 
-\item{\code{expr}}{Expressions to evaluate. Supports !!injection.}
+\item{\code{envir}}{Used for recursion, do not change.}
 }
 \if{html}{\out{</div>}}
 }

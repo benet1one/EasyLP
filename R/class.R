@@ -55,8 +55,6 @@ public = {list(
     objective_add = 0,
     direction = "min",
 
-    status = "unsolved",
-    objective_value = NA_real_,
     pointer = NULL,
 
     #' @description
@@ -249,9 +247,9 @@ public = {list(
 
         status <- solve(prob)
         objval <- get.objective(prob) |> large_to_infinity()
-        self$objective_value <- objval + self$objective_add
+        private$objval <- objval + self$objective_add
         private$sol[] <- get.variables(prob) |> large_to_infinity()
-        self$status <- switch(
+        private$.status <- switch(
             as.character(status),
             "0" = "optimal",
             "1" = "sub-optimal",
@@ -339,7 +337,7 @@ public = {list(
     #' @param tol Tolerance used for inequalities.
     check_feasible = function(tol = 2e-8) {
 
-        if (self$status == "unsolved")
+        if (private$.status == "unsolved")
             return(self)
 
         feas <- private$feasible(tol)
@@ -356,7 +354,7 @@ public = {list(
     #' @description
     #' Returns an error if problem is unsolved. Used internally.
     check_solved = function() {
-        if (self$status == "unsolved")
+        if (private$.status == "unsolved")
             stop("Linear Problem has not been solved. Use easylp$solve().")
     },
     #' @description
@@ -371,16 +369,16 @@ public = {list(
     #' Remove all solution data, including the objective value.
     #' The pointer to the lpSolveAPI model is kept. Used internally.
     reset_solution = function() {
-        self$status <- "unsolved"
+        private$.status <- "unsolved"
         private$sol[] <- 0
-        self$objective_value <- NA_real_
+        private$objval <- NA_real_
         invisible(self)
     },
 
     #' @description
     #' Check if an operation is valid, using the problem's variables.
     #' Supports 'for' syntax used in constraints.
-    #' @param expr Expressions to evaluate. Supports !!injection.
+    #' @param ... Expressions to evaluate. Supports !!injection.
     #' @param envir Used for recursion, do not change.
     test = function(..., envir = private$envir()) {
         exprs <- enexprs(...)
@@ -412,11 +410,11 @@ public = {list(
     #' Print relevant information about a linear problem:
     #' status, objective value, and solution.
     print = function() {
-        cat("Easy Linear Problem \nStatus:", self$status)
-        if (self$status != "optimal")
+        cat("Easy Linear Problem \nStatus:", private$.status)
+        if (private$.status != "optimal")
             return()
 
-        val <- self$objective_value
+        val <- private$objval
         add <- self$objective_add
         cat("\nObjective Value =", val - add)
         if (add != 0)
@@ -438,6 +436,8 @@ public = {list(
 )},
 private = {list(
     sol = numeric(),
+    objval = NA_real_,
+    .status = "unsolved",
     obj = function(expr, envir) {
         joint_var <- sum(eval(expr, envir))
         self$objective_fun[] <- joint_var$coef
@@ -465,7 +465,7 @@ active = {list(
     },
     solution = function(arg) {
         error_field_assign()
-        if (self$status != "optimal")
+        if (private$.status != "optimal")
             warning("Problem is not optimal.\n")
         lapply(self$variables, \(x) {
             if (length(x$ind) == 1L)
@@ -475,9 +475,18 @@ active = {list(
             sol
         })
     },
+    objective_value = function(arg) {
+        error_field_assign()
+        self$check_solved()
+        private$objval
+    },
+    status = function(arg) {
+        error_field_assign()
+        private$.status
+    },
     sensitivity_objective = function(arg) {
         error_field_assign()
-        stopifnot(self$status == "optimal")
+        stopifnot(private$.status == "optimal")
         if (self$any_integer())
             stop("Sensitivity unavailable for problems with integer/binary variables")
         objective <- array(
@@ -493,7 +502,7 @@ active = {list(
     },
     sensitivity_rhs = function(arg) {
         error_field_assign()
-        stopifnot(self$status == "optimal")
+        stopifnot(private$.status == "optimal")
         if (self$any_integer())
             stop("Sensitivity unavailable for problems with integer/binary variables")
         rhs <- array(
