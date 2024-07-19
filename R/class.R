@@ -174,7 +174,9 @@ public = {list(
     #' @param expr_list Optionally, a list of expressions representing constraints.
     #' @param envir Used for recursion, do not change.
     #' @export
-    # #' @example inst/examples/cons.R
+    #' @examples
+    #' # Make sure to build vignettes when installing the package.
+    #' vignette("constraints")
     con = function(..., expr_list = list(), envir = private$envir()) {
         dots <- c(enexprs(...), expr_list)
         for (k in seq_along(dots)) {

@@ -37,12 +37,6 @@ lp$solve()
 lp
 ```
 
-EasyLP supports variable arrays of any dimension. Create sets and assign them to the variable.
-
-```{r}
-
-```
-
 # Learn more with vignettes
 
 Make sure to `build_vignettes = TRUE` and discover everything you can do using the powerful and intuitive syntax.

@@ -40,6 +40,8 @@ length.lp_var <- function(x) length(x$ind)
 #' @export
 dim.lp_var <- function(x) dim(x$ind)
 #' @export
+dimnames.lp_var <- function(x) dimnames(x$ind)
+#' @export
 `[.lp_var` <- function(x, ...) {
 
     if (!x$indexable)

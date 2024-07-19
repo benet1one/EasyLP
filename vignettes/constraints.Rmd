@@ -18,9 +18,9 @@ knitr::opts_chunk$set(
 library(easylp)
 ```
 
-This vignette will teach you all the different ways to define linear constraints.
-
 # Introduction
+
+There are lots of different ways to define constraints in EasyLP. This vignette will teach you all of them and the nuances between them .
 
 ## Basics
 

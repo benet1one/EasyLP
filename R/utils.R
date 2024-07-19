@@ -103,14 +103,11 @@ modified <- within(list(), {
     diag <- function(x = 1, nrow, ncol, names = TRUE) {
         if (!is_lp_var(x))
             return(base::diag(x, nrow, ncol, names))
-        if (!missing(nrow) || !missing(ncol))
-            warning("'nrow' and 'ncol' are ignored for linear variables.")
-        if (!isTRUE(names))
-            warning("'names' is ignored for linear variables.")
+        warn_changed_args(nrow = , ncol = , names = TRUE)
 
         x <- x[base::diag(x$ind)]
         x$raw <- FALSE
-        x$indexable <- FALSE
+        # x$indexable <- FALSE
         return(x)
     }
     apply <- function(X, MARGIN, FUN, ..., simplify = TRUE) {
@@ -120,11 +117,19 @@ modified <- within(list(), {
 
         warn_changed_args(simplify = TRUE)
 
-        if (any(MARGIN < 1) || any(MARGIN > length(dim(X))))
-            stop("'MARGIN' does not match dim(X)")
+        if (is.character(MARGIN)) {
+            if (is.null(dimnames(X)))
+                stop("'X' must have named dimnames.")
+            MARGIN <- match(MARGIN, dimnames(X))
+            if (anyNA(MARGIN))
+                stop("Not all elements of 'MARGIN' are names of dimensions.")
+
+        } else if (is.numeric(MARGIN)) {
+            if (any(MARGIN < 1) || any(MARGIN > length(dim(X))))
+                stop("'MARGIN' does not match dim(X).")
+        }
 
         grid_cols <- lapply(dim(X)[MARGIN], seq_len)
-        names(grid_cols) <- MARGIN
         grid <- expand.grid(grid_cols)
 
         coef <- matrix(ncol = ncol(X$coef), nrow = nrow(grid))
@@ -139,10 +144,11 @@ modified <- within(list(), {
             add[k] <- z$add
         }
 
+        X$ind <- array(1:nrow(grid), dim(X)[MARGIN], dimnames(X)[MARGIN])
         X$coef <- coef
         X$add <- add
         X$raw <- FALSE
-        X$indexable <- FALSE
+        # X$indexable <- FALSE
         return(X)
     }
     rowSums  <- function(x, na.rm = FALSE, dims = 1) {
