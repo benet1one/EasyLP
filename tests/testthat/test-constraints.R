@@ -25,3 +25,8 @@ test_that("invalid variable operations", {
     expect_error(lp$con(y[9L] >= 0))
     expect_error(lp$con(y[1L, 1L] >= 0))
 })
+
+test_that("badly defined constraints", {
+    expect_error(lp$con(5))
+    expect_warning(lp$con(x[0] == integer()))
+})

@@ -202,9 +202,7 @@ $\dots, \forall a \in A \to$ `for(a in A) {...}`
 
 $\sum_{b\in B}{(\dots)}\to$ `sum_for(b=B, ...)`
 
-# Tips and Tricks
-
-## Sensitivity
+# Sensitivity
 
 You can obtain sensitivity for right-hand-side coefficients after successfully solving a linear problem. Unfortunately, sensitivity is only available if there are no integer or binary variables.
 
@@ -232,40 +230,7 @@ lp$con(2 >= x)
 lp$constraint
 ```
 
-## Removing Constraints
-
-Removing constraints is a way to make a problem feasible. You can use `easylp$uncon()` to un-constraint a problem.
-
-```{r}
-lp <- easylp$new()
-lp$var("x", 1:4)
-lp$min(sum(x))
-lp$con(
-    limit   =  x <= 2,
-    average =  mean(x) >= 3
-)
-lp$solve()
-lp$constraint
-lp$status
-```
-
-All x must be lesser than 2, but the mean must be greater than 3. That's impossible! Let's try removing the first constraint.
-
-```{r}
-lp1 <- lp$clone()
-lp1$uncon("limit")
-lp1$solve()
-lp1$constraint
-lp1$status
-```
-
-There's a couple things you should know about removing constraints:
-
--   You can only remove named constraints.
-
--   You cannot remove individual rows. For instance, you can't remove only `limit[1]` from the previous example.
-
--   You can remove multiple constraints at once using a character vector. `lp$uncon(c("limit", "average"))`
+# Tips and Tricks
 
 ## Associating Numeric and Binary Variables
 
@@ -314,7 +279,70 @@ lp2$con(
 lp2$constraint
 ```
 
-## List of Supported Functions
+## Creating Aliases
+
+Aliases are useful for defining more readable constraints. Let's go back to the transportation problem to demonstrate this.
+
+```{r}
+factory <- c("A", "B")
+market <- c(1, 2)
+
+capacity <- c(120, 180) |> parameter(factory)
+demand <- c(140, 150) |> parameter(market)
+
+lp <- easylp$new()
+lp$var("t", factory, market, lower=0)
+
+lp$alias(
+    Fac = factory,
+    Mar = market,
+    made = rowSums(t),
+    sold = colSums(t)
+)
+
+lp$con(
+    cap =  for(i in Fac)  made[i] <= capacity[i],
+    dem =  for(j in Mar)  sold[j] >= demand[j]
+)
+lp$constraint
+```
+
+## Removing Constraints
+
+Removing constraints is a way to make a problem feasible. You can use `easylp$uncon()` to un-constraint a problem.
+
+```{r}
+lp <- easylp$new()
+lp$var("x", 1:4)
+lp$min(sum(x))
+lp$con(
+    limit   =  x <= 2,
+    average =  mean(x) >= 3
+)
+lp$solve()
+lp$constraint
+lp$status
+```
+
+All x must be lesser than 2, but the mean must be greater than 3. That's impossible! Let's try removing the first constraint.
+
+```{r}
+lp1 <- lp$clone()
+lp1$uncon("limit")
+lp1$solve()
+lp1$constraint
+lp1$status
+```
+
+There's a couple things you should know about removing constraints:
+
+-   You can only remove named constraints.
+
+-   You cannot remove individual rows. For instance, you can't remove only `limit[1]` from the previous example.
+
+-   You can remove multiple constraints at once using a character vector. `lp$uncon(c("limit", "average"))`
+
+# List of Supported Functions
 
 These functions can be used on linear variables. Here, `easylp$test()` is useful to know if the syntax is valid.
 

@@ -8,12 +8,12 @@ inside <- function(expr) {
     else
         expr
 }
-for_split <- function(expr, envir = parent.frame()) {
+for_split <- function(expr, evaluator = eval, envir = caller_env()) {
 
     if (expr[[1L]] != quote(`for`))
         stop("Expression is not wrapped in a for loop")
 
-    sequence <- expr[[3L]] |> eval(envir = envir)
+    sequence <- expr[[3L]] |> evaluator(envir)
     interior <- expr[[4L]]
 
     looper_env <- list(NA)

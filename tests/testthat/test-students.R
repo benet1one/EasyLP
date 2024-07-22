@@ -31,7 +31,7 @@ lp <- easylp$new()
 lp$var("pair", s1 = students, s2 = students, binary = TRUE)
 lp$max(sum(affinity * pair) + 1)
 lp$con(
-    paired =  for(i in students) for(j in students)  pair[i, j] == pair[j, i],
+    paired =  for(i in students) for(j in i:ns)  pair[i, j] == pair[j, i],
     everyone_has_one_pair =  for(i in students)  sum(pair[i, ]) == 1,
 )
 
