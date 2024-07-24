@@ -22,6 +22,7 @@ library(rlang)
 #' @field constraint List including the constraint matrix 'mat',
 #' a vector of directions 'dir', and a vector of right-hand-side values 'rhs'.
 #' Printed as a single matrix.
+#' @field aliases List of aliases. Named expressions.
 #' @field nvar Actual number of variables, \code{sum(lengths(variables))}.
 #' @field ncon Number of constraints. \code{nrow(constraint$mat)}
 #' @field direction Character indicating whether to minimize 'min' or maximize
@@ -101,14 +102,14 @@ public = {list(
             sets <- dots_list(..., .named = TRUE)
 
         ind <- array(dim = lengths(sets), dimnames = sets)
-        ind[] <- 1:length(ind) + private$nvar
+        ind[] <- 1:length(ind) + private$n_var
         len <- length(ind)
 
         selected <- logical(ind[len])
         selected[ind] <- TRUE
 
         add <- numeric(len)
-        coef <- cbind(matrix(0, nrow = len, ncol = private$nvar),
+        coef <- cbind(matrix(0, nrow = len, ncol = private$n_var),
                       diag(len))
 
         type <- if (integer)
@@ -165,7 +166,7 @@ public = {list(
         ) |> structure(class = "lp_var")
 
         self$variables <- append(self$variables, list(x) |> setNames(name))
-        private$nvar <- private$nvar + len
+        private$n_var <- private$n_var + len
         invisible(self)
     },
     #' @description
@@ -177,22 +178,23 @@ public = {list(
     #' @examples
     #' # Make sure to build vignettes when installing the package.
     #' vignette("constraints")
-    con = function(..., parent = 1L) {
+    con = function(..., envir = caller_env()) {
         dots <- enexprs(...)
         for (k in seq_along(dots)) {
-            expr <- inside(dots[[k]])
-            if (expr[[1L]] == quote(`for`)) {
-                split <- for_split(expr, evaluator = private$eval,
-                                   envir = caller_env(parent))
-                split <- name_for_split(split, name = names(dots)[k])
-                self$con(!!!split, parent = parent + 1L)
+            dk <- dots[[k]]
+            constraint <- if (is.language(dk)) private$eval(dk, envir)
+            else dk
+
+            if (is_for_split(constraint)) {
+                split <- flatten_for_split(constraint, names(dots)[k])
+                self$con(!!!split, envir = envir)
                 next
             }
-            constraint <- private$eval(expr, parent = caller_env(parent))
+
             if (!is_lp_con(constraint))
-                stop("Constraint ", k, " did not evaluate to an (in)equality.")
+                stop("Constraint did not evaluate to an (in)equality.")
             if (nrow(constraint$mat) == 0L) {
-                warning("Constraint ", k, " is empty.")
+                warning("Constraint is empty.")
                 next
             }
             constraint <- name_constraint(constraint, names(dots)[k])
@@ -225,7 +227,7 @@ public = {list(
     #' See \code{\link[lpSolveAPI]{lp.control.options}}.
     solve = function(...) {
 
-        if (private$nvar == 0L)
+        if (private$n_var == 0L)
             stop("Problem contains no variables.")
         if (all(self$objective_fun == 0))
             stop("Must specify objective function.")
@@ -233,7 +235,7 @@ public = {list(
             stop("Direction must be either 'min' or 'max'.")
 
         # try(delete.lp(self$pointer), silent = TRUE)
-        prob <- make.lp(nrow = 0, ncol = private$nvar)
+        prob <- make.lp(nrow = 0, ncol = private$n_var)
         set.objfn(prob, self$objective_fun)
         lp.control(prob, sense = self$direction, ...)
 
@@ -309,7 +311,7 @@ public = {list(
                          max1 = x$bound[2L], max0 = x$bound[1L],
                          min1 = x$bound[1L], min0 = x$bound[1L]) {
 
-        x <- private$eval(enexpr(x))
+        x <- private$eval(enexpr(x), split_for = FALSE)
         x <- update_bounds(x, self$variables)
 
         stopifnot(length(max1) == 1L, length(max0) == 1L,
@@ -317,7 +319,7 @@ public = {list(
                   is.finite(max1), is.finite(max0),
                   is.finite(min1), is.finite(min0))
 
-        b <- private$eval(enexpr(binary))
+        b <- private$eval(enexpr(binary), split_for = FALSE)
 
         if (!b$binary)
             warning("Variable '", format(enexpr(binary)), "' is not binary.",
@@ -333,6 +335,10 @@ public = {list(
 
         invisible(self)
     },
+    #' @description
+    #' Define aliases that can be used in constraints and more. Must be named.
+    #' Aliases are not checked when defined, but rather when they're used.
+    #' This means it's harder to trace back the error to the alias.
     alias = function(...) {
         dots <- enexprs(...)
         if (any(names2(dots) == ""))
@@ -390,22 +396,16 @@ public = {list(
     #' Supports 'for' syntax used in constraints.
     #' @param ... Expressions to evaluate. Supports !!injection.
     #' @param envir Used for recursion, do not change.
-    test = function(..., parent = 1L) {
+    test = function(..., envir = caller_env()) {
         dots <- enexprs(...)
         results <- list()
         for (k in seq_along(dots)) {
             expr <- dots[[k]]
-            if (expr[[1L]] == quote(`for`)) {
-                split <- for_split(expr, evaluator = private$eval,
-                                   envir = caller_env(parent))
-                split <- name_for_split(split, name = names(dots)[k])
-                res <- self$test(!!!split, parent = parent + 1L)
-                results <- append(results, list(res))
-                next
-            }
-            res <- tryCatch(private$eval(expr, parent = caller_env(parent)), error = identity)
+            res <- tryCatch(private$eval(expr, envir), error = identity)
 
-            if (is_lp_var(res))
+            if (is_for_split(res))
+                res <- flatten_for_split(res, init_name = names(dots)[k])
+            else if (is_lp_var(res))
                 colnames(res$coef) <- colnames(self$constraint$mat)
             else if (is_lp_con(res))
                 colnames(res$mat) <- colnames(self$constraint$mat)
@@ -446,12 +446,12 @@ public = {list(
     }
 )},
 private = {list(
-    nvar = 0L,
+    n_var = 0L,
     sol = numeric(),
     objval = NA_real_,
     .status = "unsolved",
     set_objective = function(expr) {
-        joint_var <- sum(private$eval(expr, parent = caller_env(2L)))
+        joint_var <- private$eval(expr, parent = caller_env(2L), split_for = FALSE)
         self$objective_fun[] <- joint_var$coef
         self$objective_add <- joint_var$add
         self$reset_solution()
@@ -465,18 +465,32 @@ private = {list(
         nam[nam == ""] <- which(nam == "")
         compare_tol(lhs, rhs, dir, tol) |> setNames(nam)
     },
-    eval = function(expr, parent = caller_env(2L)) {
+    eval = function(expr, parent = caller_env(2L), split_for = TRUE) {
+
         modified_env <- as_environment(modified, parent = parent)
-        variable_env <- as_environment(self$variables, parent = modified_env)
-        expr2 <- substituteDirect(expr, frame = self$aliases)
-        eval(expr2, variable_env)
+        envir <- as_environment(self$variables, parent = modified_env)
+
+        aliases <- all.vars(expr)
+        aliases <- aliases[is.element(aliases, names(self$aliases))]
+
+        for (a in aliases) {
+            sym <- self$aliases[[a]]
+            err <- tryCatch(eval(sym, envir), error = identity)
+            if (is_error(err))
+                stop("Alias '", a, "' evaluated to the following error:\n", err)
+        }
+
+        expr <- substituteDirect(expr, frame = self$aliases)
+
+        if (!split_for) return(eval(expr, envir))
+        else return(for_split(expr, envir = envir))
     }
 )},
 active = {list(
-    # nvar = function(arg) {
-    #     error_field_assign()
-    #     private$nvar
-    # },
+    nvar = function(arg) {
+        error_field_assign()
+        private$n_var
+    },
     ncon = function(arg) {
         error_field_assign()
         length(self$constraint$rhs)
