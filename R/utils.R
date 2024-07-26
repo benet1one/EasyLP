@@ -59,6 +59,7 @@ for_split <- function(expr, envir = caller_env(), evaluate = TRUE) {
         class = "ForSplit"
     )
 }
+
 flatten_for_split <- function(split, init_name = "") {
 
     atoms <- list()
@@ -83,6 +84,19 @@ flatten_for_split <- function(split, init_name = "") {
     add(split)
     return(atoms)
 }
+join_constraints <- function(constraint, ...) {
+    dots <- list2(...)
+    for (k in seq_along(dots)) {
+        con <- dots[[k]]
+        stopifnot(is_lp_con(con))
+        if (is.null(rownames(con$mat)))
+            con <- name_constraint(con, names2(dots)[k])
+        constraint$mat <- rbind(constraint$mat, con$mat)
+        constraint$dir <- c(constraint$dir, unname(con$dir))
+        constraint$rhs <- c(constraint$rhs, unname(con$rhs))
+    }
+    constraint
+}
 
 name_variable <- function(name, sets) {
     if (length(sets) == 1L && length(sets[[1]]) == 1L)
@@ -98,14 +112,6 @@ name_constraint <- function(constraint, name, previous = character()) {
         name <- paste0(name, "[", 1:nrow(constraint$mat), "]")
     rownames(constraint$mat) <- name
     constraint
-}
-name_for_split <- function(fsplit, name = "") {
-
-    var <- attr(split, "variable")
-    seq <- attr(split, "sequence")
-
-    names(split) <- paste0(name, left, var, "=", seq, right)
-    return(split)
 }
 
 compare_tol <- Vectorize(function(lhs, rhs, dir, tol) {

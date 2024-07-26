@@ -85,7 +85,7 @@ public = {list(
                   length(upper) == 1L,
                   lower < upper)
 
-        if (is.element(name, names(self$variables)))
+        if (is.element(name, names2(self$variables)))
             stop("Variable '", name, "' already defined in this model.")
 
         if (binary) {
@@ -179,28 +179,31 @@ public = {list(
     #' # Make sure to build vignettes when installing the package.
     #' vignette("constraints")
     con = function(..., envir = caller_env()) {
+
         dots <- enexprs(...)
         for (k in seq_along(dots)) {
-            dk <- dots[[k]]
-            constraint <- if (is.language(dk)) private$eval(dk, envir)
-            else dk
+
+            constraint <- private$eval(dots[[k]], envir)
 
             if (is_for_split(constraint)) {
-                split <- flatten_for_split(constraint, names(dots)[k])
-                self$con(!!!split, envir = envir)
+                split <- flatten_for_split(constraint, names2(dots)[k])
+                if (!is_lp_con(split[[1L]]))
+                    stop("Constraint did not evaluate to an (in)equality.")
+                self$constraint <- join_constraints(self$constraint, !!!split)
+                # self$con(!!!split, envir = envir)
                 next
             }
 
+            ref <- if (names2(dots)[k] != "") names2(dots)[k]  else k
+
             if (!is_lp_con(constraint))
-                stop("Constraint did not evaluate to an (in)equality.")
+                stop("Constraint ", ref, " did not evaluate to an (in)equality.")
             if (nrow(constraint$mat) == 0L) {
-                warning("Constraint is empty.")
+                warning("Constraint ", ref, " is empty.")
                 next
             }
-            constraint <- name_constraint(constraint, names(dots)[k])
-            self$constraint$mat <- rbind(self$constraint$mat, constraint$mat)
-            self$constraint$dir <- c(self$constraint$dir, unname(constraint$dir))
-            self$constraint$rhs <- c(self$constraint$rhs, unname(constraint$rhs))
+            constraint <- name_constraint(constraint, names2(dots)[k])
+            self$constraint <- join_constraints(self$constraint, constraint)
         }
         self$check_feasible()
         invisible(self)
@@ -359,7 +362,7 @@ public = {list(
         feas <- private$feasible(tol)
 
         if (any(!feas)) {
-            unfeas <- paste(names(feas)[!feas], collapse = ",")
+            unfeas <- paste(names2(feas)[!feas], collapse = ",")
             message("Constrainsts: ", unfeas, "; are unfeasible. ",
                     "Use easylp$solve() to find a new solution.")
             self$reset_solution()
@@ -403,8 +406,19 @@ public = {list(
             expr <- dots[[k]]
             res <- tryCatch(private$eval(expr, envir), error = identity)
 
-            if (is_for_split(res))
-                res <- flatten_for_split(res, init_name = names(dots)[k])
+            if (is_for_split(res)) {
+                res <- flatten_for_split(res, init_name = names2(dots)[k])
+                if (is_lp_con(res[[1L]])) {
+                    emptycon <- self$constraint
+                    emptycon$mat <- emptycon$mat[integer(), ]
+                    emptycon$dir <- character()
+                    emptycon$rhs <- numeric()
+                    res <- join_constraints(emptycon, !!!res)
+                } else {
+                    res <- self$test(!!!res, envir = envir)
+                }
+            }
+
             else if (is_lp_var(res))
                 colnames(res$coef) <- colnames(self$constraint$mat)
             else if (is_lp_con(res))
@@ -467,6 +481,9 @@ private = {list(
     },
     eval = function(expr, parent = caller_env(2L), split_for = TRUE) {
 
+        if (!is.language(expr))
+            return(expr)
+
         modified_env <- as_environment(modified, parent = parent)
         envir <- as_environment(self$variables, parent = modified_env)
 
@@ -523,7 +540,7 @@ active = {list(
             stop("Sensitivity unavailable for problems with integer/binary variables")
         objective <- array(
             dim = c(length(self$objective_fun), 3L),
-            dimnames = list(Variable = names(private$sol),
+            dimnames = list(Variable = names2(private$sol),
                             Bound = c("Lower", "Current", "Upper"))
         )
         sens <- get.sensitivity.obj(self$pointer)
