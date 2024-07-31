@@ -54,7 +54,7 @@ public = {list(
 
     objective_fun = numeric(),
     objective_add = 0,
-    direction = "min",
+    objective_transform = identity,
 
     pointer = NULL,
 
@@ -213,7 +213,7 @@ public = {list(
     #' @param objective Uses the same syntax as constraints.
     #' Must be a single value, so use \code{sum()} when needed.
     min = function(objective) {
-        self$direction <- "min"
+        private$dir <- "min"
         private$set_objective(enexpr(objective))
     },
     #' @description
@@ -221,7 +221,7 @@ public = {list(
     #' @param objective Uses the same syntax as constraints.
     #' Must be a single value, so use \code{sum()} when needed.
     max = function(objective) {
-        self$direction <- "max"
+        private$dir <- "max"
         private$set_objective(enexpr(objective))
     },
     #' @description
@@ -234,13 +234,13 @@ public = {list(
             stop("Problem contains no variables.")
         if (all(self$objective_fun == 0))
             stop("Must specify objective function.")
-        if (!is.element(self$direction, c("min", "max")))
+        if (!is.element(private$dir, c("min", "max")))
             stop("Direction must be either 'min' or 'max'.")
 
         # try(delete.lp(self$pointer), silent = TRUE)
         prob <- make.lp(nrow = 0, ncol = private$n_var)
         set.objfn(prob, self$objective_fun)
-        lp.control(prob, sense = self$direction, ...)
+        lp.control(prob, sense = private$dir, ...)
 
         for (x in self$variables) {
             set.type(prob, columns = x$ind, type = x$type)
@@ -255,10 +255,9 @@ public = {list(
         })
 
         status <- solve(prob)
-        objval <- get.objective(prob) |> large_to_infinity()
-        private$objval <- objval + self$objective_add
+        private$objval <- get.objective(prob) |> large_to_infinity()
         private$sol[] <- get.variables(prob) |> large_to_infinity()
-        private$.status <- switch(
+        private$stat <- switch(
             as.character(status),
             "0" = "optimal",
             "1" = "sub-optimal",
@@ -356,7 +355,7 @@ public = {list(
     #' @param tol Tolerance used for inequalities.
     check_feasible = function(tol = 2e-8) {
 
-        if (private$.status == "unsolved")
+        if (private$stat == "unsolved")
             return(self)
 
         feas <- private$feasible(tol)
@@ -373,7 +372,7 @@ public = {list(
     #' @description
     #' Returns an error if problem is unsolved. Used internally.
     check_solved = function() {
-        if (private$.status == "unsolved")
+        if (private$stat == "unsolved")
             stop("Linear Problem has not been solved. Use easylp$solve().")
     },
     #' @description
@@ -388,7 +387,7 @@ public = {list(
     #' Remove all solution data, including the objective value.
     #' The pointer to the lpSolveAPI model is kept. Used internally.
     reset_solution = function() {
-        private$.status <- "unsolved"
+        private$stat <- "unsolved"
         private$sol[] <- 0
         private$objval <- NA_real_
         invisible(self)
@@ -435,11 +434,11 @@ public = {list(
     #' Print relevant information about a linear problem:
     #' status, objective value, and solution.
     print = function() {
-        cat("Easy Linear Problem \nStatus:", private$.status)
-        if (private$.status != "optimal")
+        cat("Easy Linear Problem \nStatus:", private$stat)
+        if (private$stat != "optimal")
             return()
 
-        val <- private$objval
+        val <- self$objective_value
         add <- self$objective_add
         cat("\nObjective Value =", val - add)
         if (add != 0)
@@ -461,9 +460,10 @@ public = {list(
 )},
 private = {list(
     n_var = 0L,
+    dir = "min",
     sol = numeric(),
     objval = NA_real_,
-    .status = "unsolved",
+    stat = "unsolved",
     set_objective = function(expr) {
         joint_var <- private$eval(expr, parent = caller_env(2L), split_for = FALSE)
         self$objective_fun[] <- joint_var$coef
@@ -512,9 +512,15 @@ active = {list(
         error_field_assign()
         length(self$constraint$rhs)
     },
+    direction = function(arg) {
+        if (missing(arg)) return(private$dir)
+        if (is_character(arg, n = 1L) && tolower(arg) %in% c("min", "max"))
+            private$dir <- tolower(arg)
+        else stop("Direction must be either 'min' or 'max'.")
+    },
     solution = function(arg) {
         error_field_assign()
-        if (private$.status != "optimal")
+        if (private$stat != "optimal")
             warning("Problem is not optimal.\n")
         lapply(self$variables, \(x) {
             if (length(x$ind) == 1L)
@@ -527,15 +533,15 @@ active = {list(
     objective_value = function(arg) {
         error_field_assign()
         self$check_solved()
-        private$objval
+        private$objval + self$objective_add
     },
     status = function(arg) {
         error_field_assign()
-        private$.status
+        private$stat
     },
     sensitivity_objective = function(arg) {
         error_field_assign()
-        stopifnot(private$.status == "optimal")
+        stopifnot(private$stat == "optimal")
         if (self$any_integer())
             stop("Sensitivity unavailable for problems with integer/binary variables")
         objective <- array(
@@ -551,7 +557,7 @@ active = {list(
     },
     sensitivity_rhs = function(arg) {
         error_field_assign()
-        stopifnot(private$.status == "optimal")
+        stopifnot(private$stat == "optimal")
         if (self$any_integer())
             stop("Sensitivity unavailable for problems with integer/binary variables")
         rhs <- array(

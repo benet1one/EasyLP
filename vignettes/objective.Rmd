@@ -43,4 +43,11 @@ $$
 \{\min{z = \log(x+y)}\} \equiv \{\min{z' = x+y}\}
 $$
 
-This is to say, the optimal solution will be the same, but not the objective value.
+This is to say, the optimal solution will be the same, but the objective value will not. It is not possible to use a logarithm in EasyLP and it will throw an error.
+
+```{r}
+lp <- easylp$new()
+lp$var("x")
+lp$var("y")
+lp$min(log(x + y))
+```

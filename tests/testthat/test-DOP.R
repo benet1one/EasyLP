@@ -33,6 +33,7 @@ lp$var("tms", Molí, Super, lower = 0)
 lp$min(sum(cost_tdm * tdm)
      + sum_for(m=Molí, tdm[, m] * cost_extracció[m])
      + sum(cost_tms * tms)
+     - 45000
 )
 
 lp$con(
@@ -48,6 +49,6 @@ lp$con(
 lp$solve()
 
 test_that("correct objective", {
-    expect_equal(lp$objective_value, 3985000)
+    expect_equal(lp$objective_value, 3985000 - 45000)
 })
 
