@@ -46,8 +46,8 @@ lp$con(
 )
 
 lp$solve()
-# print(lp)
 
-# print(lp$sensitivity_objective)
-# print(lp$sensitivity_rhs)
+test_that("correct objective", {
+    expect_equal(lp$objective_value, 3985000)
+})
 

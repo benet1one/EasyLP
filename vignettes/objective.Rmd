@@ -1,0 +1,46 @@
+---
+title: "Setting Objective Function"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{objective}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(easylp)
+```
+
+# Introduction
+
+This vignette will explore the different ways to define and interpret the objective function.
+
+## Basics
+
+```{r}
+lp <- easylp$new()
+lp$var("x", myset = letters[1:5])
+```
+
+# Posterior Transformations
+
+In a linear problem, the objective function must always be a linear function. Internally, this means each variable has a coefficient. Say we have an objective function such as this one:
+
+$$
+\min{z = \log(x+y)}
+$$
+
+This is not a linear function, but it can be converted to an equivalent one. Because the *log* function is [monotonically increasing](https://en.wikipedia.org/wiki/Monotonic_function), minimizing that problem is the same as minimizing this one.
+
+$$
+\{\min{z = \log(x+y)}\} \equiv \{\min{z' = x+y}\}
+$$
+
+This is to say, the optimal solution will be the same, but not the objective value.

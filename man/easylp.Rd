@@ -30,10 +30,6 @@ Printed as a single matrix.}
 
 \item{\code{nvar}}{Actual number of variables, \code{sum(lengths(variables))}.}
 
-\item{\code{direction}}{Character indicating whether to minimize 'min' or maximize
-'max' the objective function. Automatically changed when defining
-objective with \code{easylp$min(), easylp$max()}}
-
 \item{\code{objective_fun}}{Vector of coefficients for the objective function.}
 
 \item{\code{objective_add}}{Optional value to add to the objective value.
@@ -62,6 +58,10 @@ second column is the current value,
 and third column is the upper bound.}
 
 \item{\code{ncon}}{Number of constraints. \code{nrow(constraint$mat)}}
+
+\item{\code{direction}}{Character indicating whether to minimize 'min' or maximize
+'max' the objective function. Automatically changed when defining
+objective with \code{easylp$min(), easylp$max()}}
 
 \item{\code{objective_value}}{Value of the objective function with the optimal solution.}
 

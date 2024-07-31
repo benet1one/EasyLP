@@ -267,7 +267,6 @@ sum_for <- function(..., .env = caller_env()) {
     do.call(sum, result)
 }
 
-
 #' Randomize values for a variable.
 #' @description
 #' You can use this function to test if the variable is correctly defined,

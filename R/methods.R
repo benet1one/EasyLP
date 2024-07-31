@@ -250,4 +250,10 @@ mean.lp_var <- function(x, ...) {
     check_dots_empty()
     sum(x) / length(x)
 }
+#' @export
+weighted.mean.lp_var <- function(x, w, ...) {
+    check_dots_empty()
+    if (length(w) != length(x)) stop("'x' and 'w' must have the same length")
+    sum((x * w)) / sum(w)
+}
 
