@@ -1,14 +1,14 @@
 
 inside <- function(expr) {
+    stopifnot(is.language(expr))
     if (is_symbol(expr))
         return(expr)
-    stopifnot(is_expression(expr) || is_call(expr))
     if (expr[[1L]] == quote(`{`) || expr[[1L]] == quote(`(`))
         inside(expr[[2L]])
     else
         expr
 }
-for_split <- function(expr, evaluator = eval, envir = caller_env()) {
+for_split_old <- function(expr, evaluator = eval, envir = caller_env()) {
 
     if (expr[[1L]] != quote(`for`))
         stop("Expression is not wrapped in a for loop")
@@ -27,6 +27,76 @@ for_split <- function(expr, evaluator = eval, envir = caller_env()) {
 
     structure(result, variable = names(looper_env), sequence = sequence)
 }
+for_split <- function(expr, envir = caller_env(), evaluate = TRUE) {
+
+    stopifnot(is.language(expr))
+    expr <- inside(expr)
+
+    if (expr[[1L]] != quote(`for`)) {
+        if (evaluate) return(eval(expr, envir))
+        else return(expr)
+    }
+
+    sequence <- expr[[3L]] |> eval(envir = envir)
+    interior <- expr[[4L]]
+
+    looper_env <- list(NA)
+    names(looper_env) <- expr[[2L]] |> format()
+    result <- list()
+
+    for (k in seq_along(sequence)) {
+        looper_env[[1L]] <- unname(sequence[k])
+        result[[k]] <- substituteDirect(interior, frame = looper_env)
+    }
+
+    result <- lapply(result, for_split, envir, evaluate)
+
+    structure(
+        result,
+        variable = names(looper_env),
+        sequence = sequence,
+        names = names(sequence),
+        class = "ForSplit"
+    )
+}
+
+flatten_for_split <- function(split, init_name = "") {
+
+    atoms <- list()
+
+    add <- function(x, name = paste0(init_name, "[")) {
+
+        if (inherits(x, "ForSplit")) {
+            var <- attr(x, "variable")
+            seq <- attr(x, "sequence")
+            name <- sub("\\]", ",", name)
+            next_names <- paste0(name, var, "=", seq, "]")
+
+            for (k in seq_along(x)) {
+                add(x[[k]], next_names[k])
+            }
+
+        } else {
+            atoms <<- append(atoms, list(x) |> setNames(name))
+        }
+    }
+
+    add(split)
+    return(atoms)
+}
+join_constraints <- function(constraint, ...) {
+    dots <- list2(...)
+    for (k in seq_along(dots)) {
+        con <- dots[[k]]
+        stopifnot(is_lp_con(con))
+        if (is.null(rownames(con$mat)))
+            con <- name_constraint(con, names2(dots)[k])
+        constraint$mat <- rbind(constraint$mat, con$mat)
+        constraint$dir <- c(constraint$dir, unname(con$dir))
+        constraint$rhs <- c(constraint$rhs, unname(con$rhs))
+    }
+    constraint
+}
 
 name_variable <- function(name, sets) {
     if (length(sets) == 1L && length(sets[[1]]) == 1L)
@@ -42,12 +112,6 @@ name_constraint <- function(constraint, name, previous = character()) {
         name <- paste0(name, "[", 1:nrow(constraint$mat), "]")
     rownames(constraint$mat) <- name
     constraint
-}
-name_for_split <- function(fsplit, name) {
-    names(fsplit) <- paste0(
-        name, "[", attr(fsplit, "variable"), "=", attr(fsplit, "sequence"), "]"
-    )
-    fsplit
 }
 
 compare_tol <- Vectorize(function(lhs, rhs, dir, tol) {

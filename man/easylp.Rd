@@ -18,6 +18,13 @@ lp$var("x", Origin = letters[1:3], Destination = letters[1:3], lower = 0)
 my_sets <- list(Origin = letters[1:3], Destination = letters[1:3])
 lp$var("y", !!!my_sets, lower = 0)
 lp$variables
+
+## ------------------------------------------------
+## Method `easylp$con`
+## ------------------------------------------------
+
+# Make sure to build vignettes when installing the package.
+vignette("constraints")
 }
 \section{Public fields}{
 \if{html}{\out{<div class="r6-fields">}}
@@ -28,7 +35,7 @@ lp$variables
 a vector of directions 'dir', and a vector of right-hand-side values 'rhs'.
 Printed as a single matrix.}
 
-\item{\code{nvar}}{Actual number of variables, \code{sum(lengths(variables))}.}
+\item{\code{aliases}}{List of aliases. Named expressions.}
 
 \item{\code{objective_fun}}{Vector of coefficients for the objective function.}
 
@@ -57,6 +64,8 @@ Rows are variables, first column is the lower bound,
 second column is the current value,
 and third column is the upper bound.}
 
+\item{\code{nvar}}{Actual number of variables, \code{sum(lengths(variables))}.}
+
 \item{\code{ncon}}{Number of constraints. \code{nrow(constraint$mat)}}
 
 \item{\code{direction}}{Character indicating whether to minimize 'min' or maximize
@@ -80,6 +89,7 @@ objective with \code{easylp$min(), easylp$max()}}
 \item \href{#method-easylp-solve}{\code{easylp$solve()}}
 \item \href{#method-easylp-uncon}{\code{easylp$uncon()}}
 \item \href{#method-easylp-associate}{\code{easylp$associate()}}
+\item \href{#method-easylp-alias}{\code{easylp$alias()}}
 \item \href{#method-easylp-check_feasible}{\code{easylp$check_feasible()}}
 \item \href{#method-easylp-check_solved}{\code{easylp$check_solved()}}
 \item \href{#method-easylp-any_integer}{\code{easylp$any_integer()}}
@@ -144,20 +154,28 @@ lp$variables
 \subsection{Method \code{con()}}{
 Define constraints.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{easylp$con(..., expr_list = list(), envir = private$envir())}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{easylp$con(..., envir = caller_env())}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{...}}{Constraints. See \code{vignette("constraints")}. Can be named.}
+\item{\code{...}}{Constraints. See \code{vignette("constraints")}. Can be named.
+Supports \code{!!!} (unquote-splice).}
 
-\item{\code{expr_list}}{Optionally, a list of expressions representing constraints.}
-
-\item{\code{envir}}{Used for recursion, do not change.}
+\item{\code{parent}}{Used for recursion, do not change.}
 }
 \if{html}{\out{</div>}}
 }
+\subsection{Examples}{
+\if{html}{\out{<div class="r example copy">}}
+\preformatted{# Make sure to build vignettes when installing the package.
+vignette("constraints")
+}
+\if{html}{\out{</div>}}
+
+}
+
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-easylp-min"></a>}}
@@ -275,6 +293,18 @@ By default, 'x' is bounded between it's lower and upper bound when
 
 }
 \if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-easylp-alias"></a>}}
+\if{latex}{\out{\hypertarget{method-easylp-alias}{}}}
+\subsection{Method \code{alias()}}{
+Define aliases that can be used in constraints and more. Must be named.
+Aliases are not checked when defined, but rather when they're used.
+This means it's harder to trace back the error to the alias.
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{easylp$alias(...)}\if{html}{\out{</div>}}
+}
+
+}
+\if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-easylp-check_feasible"></a>}}
 \if{latex}{\out{\hypertarget{method-easylp-check_feasible}{}}}
 \subsection{Method \code{check_feasible()}}{
@@ -332,7 +362,7 @@ The pointer to the lpSolveAPI model is kept. Used internally.
 Check if an operation is valid, using the problem's variables.
 Supports 'for' syntax used in constraints.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{easylp$test(..., envir = private$envir())}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{easylp$test(..., envir = caller_env())}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{

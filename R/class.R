@@ -22,6 +22,7 @@ library(rlang)
 #' @field constraint List including the constraint matrix 'mat',
 #' a vector of directions 'dir', and a vector of right-hand-side values 'rhs'.
 #' Printed as a single matrix.
+#' @field aliases List of aliases. Named expressions.
 #' @field nvar Actual number of variables, \code{sum(lengths(variables))}.
 #' @field ncon Number of constraints. \code{nrow(constraint$mat)}
 #' @field direction Character indicating whether to minimize 'min' or maximize
@@ -53,7 +54,7 @@ public = {list(
 
     objective_fun = numeric(),
     objective_add = 0,
-    objective_transform = identity,
+    direction = "min",
 
     pointer = NULL,
 
@@ -84,7 +85,7 @@ public = {list(
                   length(upper) == 1L,
                   lower < upper)
 
-        if (is.element(name, names(self$variables)))
+        if (is.element(name, names2(self$variables)))
             stop("Variable '", name, "' already defined in this model.")
 
         if (binary) {
@@ -101,14 +102,14 @@ public = {list(
             sets <- dots_list(..., .named = TRUE)
 
         ind <- array(dim = lengths(sets), dimnames = sets)
-        ind[] <- 1:length(ind) + private$nvar
+        ind[] <- 1:length(ind) + private$n_var
         len <- length(ind)
 
         selected <- logical(ind[len])
         selected[ind] <- TRUE
 
         add <- numeric(len)
-        coef <- cbind(matrix(0, nrow = len, ncol = private$nvar),
+        coef <- cbind(matrix(0, nrow = len, ncol = private$n_var),
                       diag(len))
 
         type <- if (integer)
@@ -165,7 +166,7 @@ public = {list(
         ) |> structure(class = "lp_var")
 
         self$variables <- append(self$variables, list(x) |> setNames(name))
-        private$nvar <- private$nvar + len
+        private$n_var <- private$n_var + len
         invisible(self)
     },
     #' @description
@@ -177,28 +178,32 @@ public = {list(
     #' @examples
     #' # Make sure to build vignettes when installing the package.
     #' vignette("constraints")
-    con = function(..., parent = 1L) {
+    con = function(..., envir = caller_env()) {
+
         dots <- enexprs(...)
         for (k in seq_along(dots)) {
-            expr <- inside(dots[[k]])
-            if (expr[[1L]] == quote(`for`)) {
-                split <- for_split(expr, evaluator = private$eval,
-                                   envir = caller_env(parent))
-                split <- name_for_split(split, name = names(dots)[k])
-                self$con(!!!split, parent = parent + 1L)
+
+            constraint <- private$eval(dots[[k]], envir)
+
+            if (is_for_split(constraint)) {
+                split <- flatten_for_split(constraint, names2(dots)[k])
+                if (!is_lp_con(split[[1L]]))
+                    stop("Constraint did not evaluate to an (in)equality.")
+                self$constraint <- join_constraints(self$constraint, !!!split)
+                # self$con(!!!split, envir = envir)
                 next
             }
-            constraint <- private$eval(expr, parent = caller_env(parent))
+
+            ref <- if (names2(dots)[k] != "") names2(dots)[k]  else k
+
             if (!is_lp_con(constraint))
-                stop("Constraint ", k, " did not evaluate to an (in)equality.")
+                stop("Constraint ", ref, " did not evaluate to an (in)equality.")
             if (nrow(constraint$mat) == 0L) {
-                warning("Constraint ", k, " is empty.")
+                warning("Constraint ", ref, " is empty.")
                 next
             }
-            constraint <- name_constraint(constraint, names(dots)[k])
-            self$constraint$mat <- rbind(self$constraint$mat, constraint$mat)
-            self$constraint$dir <- c(self$constraint$dir, unname(constraint$dir))
-            self$constraint$rhs <- c(self$constraint$rhs, unname(constraint$rhs))
+            constraint <- name_constraint(constraint, names2(dots)[k])
+            self$constraint <- join_constraints(self$constraint, constraint)
         }
         self$check_feasible()
         invisible(self)
@@ -207,16 +212,16 @@ public = {list(
     #' Define objective function for a minimization problem.
     #' @param objective Uses the same syntax as constraints.
     #' Must be a single value, so use \code{sum()} when needed.
-    min = function(objective, trans) {
-        private$dir <- "min"
+    min = function(objective) {
+        self$direction <- "min"
         private$set_objective(enexpr(objective))
     },
     #' @description
     #' Define objective function for a maximization problem.
     #' @param objective Uses the same syntax as constraints.
     #' Must be a single value, so use \code{sum()} when needed.
-    max = function(objective, trans) {
-        private$dir <- "max"
+    max = function(objective) {
+        self$direction <- "max"
         private$set_objective(enexpr(objective))
     },
     #' @description
@@ -225,17 +230,17 @@ public = {list(
     #' See \code{\link[lpSolveAPI]{lp.control.options}}.
     solve = function(...) {
 
-        if (private$nvar == 0L)
+        if (private$n_var == 0L)
             stop("Problem contains no variables.")
         if (all(self$objective_fun == 0))
             stop("Must specify objective function.")
-        if (!is.element(private$dir, c("min", "max")))
+        if (!is.element(self$direction, c("min", "max")))
             stop("Direction must be either 'min' or 'max'.")
 
         # try(delete.lp(self$pointer), silent = TRUE)
-        prob <- make.lp(nrow = 0, ncol = private$nvar)
+        prob <- make.lp(nrow = 0, ncol = private$n_var)
         set.objfn(prob, self$objective_fun)
-        lp.control(prob, sense = private$dir, ...)
+        lp.control(prob, sense = self$direction, ...)
 
         for (x in self$variables) {
             set.type(prob, columns = x$ind, type = x$type)
@@ -250,9 +255,10 @@ public = {list(
         })
 
         status <- solve(prob)
-        private$objval <- get.objective(prob) |> large_to_infinity()
+        objval <- get.objective(prob) |> large_to_infinity()
+        private$objval <- objval + self$objective_add
         private$sol[] <- get.variables(prob) |> large_to_infinity()
-        private$stat <- switch(
+        private$.status <- switch(
             as.character(status),
             "0" = "optimal",
             "1" = "sub-optimal",
@@ -308,7 +314,7 @@ public = {list(
                          max1 = x$bound[2L], max0 = x$bound[1L],
                          min1 = x$bound[1L], min0 = x$bound[1L]) {
 
-        x <- private$eval(enexpr(x))
+        x <- private$eval(enexpr(x), split_for = FALSE)
         x <- update_bounds(x, self$variables)
 
         stopifnot(length(max1) == 1L, length(max0) == 1L,
@@ -316,7 +322,7 @@ public = {list(
                   is.finite(max1), is.finite(max0),
                   is.finite(min1), is.finite(min0))
 
-        b <- private$eval(enexpr(binary))
+        b <- private$eval(enexpr(binary), split_for = FALSE)
 
         if (!b$binary)
             warning("Variable '", format(enexpr(binary)), "' is not binary.",
@@ -332,6 +338,10 @@ public = {list(
 
         invisible(self)
     },
+    #' @description
+    #' Define aliases that can be used in constraints and more. Must be named.
+    #' Aliases are not checked when defined, but rather when they're used.
+    #' This means it's harder to trace back the error to the alias.
     alias = function(...) {
         dots <- enexprs(...)
         if (any(names2(dots) == ""))
@@ -346,13 +356,13 @@ public = {list(
     #' @param tol Tolerance used for inequalities.
     check_feasible = function(tol = 2e-8) {
 
-        if (private$stat == "unsolved")
+        if (private$.status == "unsolved")
             return(self)
 
         feas <- private$feasible(tol)
 
         if (any(!feas)) {
-            unfeas <- paste(names(feas)[!feas], collapse = ",")
+            unfeas <- paste(names2(feas)[!feas], collapse = ",")
             message("Constrainsts: ", unfeas, "; are unfeasible. ",
                     "Use easylp$solve() to find a new solution.")
             self$reset_solution()
@@ -363,7 +373,7 @@ public = {list(
     #' @description
     #' Returns an error if problem is unsolved. Used internally.
     check_solved = function() {
-        if (private$stat == "unsolved")
+        if (private$.status == "unsolved")
             stop("Linear Problem has not been solved. Use easylp$solve().")
     },
     #' @description
@@ -378,7 +388,7 @@ public = {list(
     #' Remove all solution data, including the objective value.
     #' The pointer to the lpSolveAPI model is kept. Used internally.
     reset_solution = function() {
-        private$stat <- "unsolved"
+        private$.status <- "unsolved"
         private$sol[] <- 0
         private$objval <- NA_real_
         invisible(self)
@@ -389,22 +399,27 @@ public = {list(
     #' Supports 'for' syntax used in constraints.
     #' @param ... Expressions to evaluate. Supports !!injection.
     #' @param envir Used for recursion, do not change.
-    test = function(..., parent = 1L) {
+    test = function(..., envir = caller_env()) {
         dots <- enexprs(...)
         results <- list()
         for (k in seq_along(dots)) {
             expr <- dots[[k]]
-            if (expr[[1L]] == quote(`for`)) {
-                split <- for_split(expr, evaluator = private$eval,
-                                   envir = caller_env(parent))
-                split <- name_for_split(split, name = names(dots)[k])
-                res <- self$test(!!!split, parent = parent + 1L)
-                results <- append(results, list(res))
-                next
-            }
-            res <- tryCatch(private$eval(expr, parent = caller_env(parent)), error = identity)
+            res <- tryCatch(private$eval(expr, envir), error = identity)
 
-            if (is_lp_var(res))
+            if (is_for_split(res)) {
+                res <- flatten_for_split(res, init_name = names2(dots)[k])
+                if (is_lp_con(res[[1L]])) {
+                    emptycon <- self$constraint
+                    emptycon$mat <- emptycon$mat[integer(), ]
+                    emptycon$dir <- character()
+                    emptycon$rhs <- numeric()
+                    res <- join_constraints(emptycon, !!!res)
+                } else {
+                    res <- self$test(!!!res, envir = envir)
+                }
+            }
+
+            else if (is_lp_var(res))
                 colnames(res$coef) <- colnames(self$constraint$mat)
             else if (is_lp_con(res))
                 colnames(res$mat) <- colnames(self$constraint$mat)
@@ -420,11 +435,11 @@ public = {list(
     #' Print relevant information about a linear problem:
     #' status, objective value, and solution.
     print = function() {
-        cat("Easy Linear Problem \nStatus:", private$stat)
-        if (private$stat != "optimal")
+        cat("Easy Linear Problem \nStatus:", private$.status)
+        if (private$.status != "optimal")
             return()
 
-        val <- self$objective_value
+        val <- private$objval
         add <- self$objective_add
         cat("\nObjective Value =", val - add)
         if (add != 0)
@@ -445,22 +460,12 @@ public = {list(
     }
 )},
 private = {list(
-<<<<<<< Updated upstream
-    nvar = 0L,
+    n_var = 0L,
     sol = numeric(),
     objval = NA_real_,
     .status = "unsolved",
     set_objective = function(expr) {
-        joint_var <- sum(private$eval(expr, parent = caller_env(2L)))
-=======
-    n_var = 0L,
-    dir = "min",
-    sol = numeric(),
-    objval = NA_real_,
-    stat = "unsolved",
-    set_objective = function(expr, trans) {
         joint_var <- private$eval(expr, parent = caller_env(2L), split_for = FALSE)
->>>>>>> Stashed changes
         self$objective_fun[] <- joint_var$coef
         self$objective_add <- joint_var$add
         self$reset_solution()
@@ -474,31 +479,42 @@ private = {list(
         nam[nam == ""] <- which(nam == "")
         compare_tol(lhs, rhs, dir, tol) |> setNames(nam)
     },
-    eval = function(expr, parent = caller_env(2L)) {
+    eval = function(expr, parent = caller_env(2L), split_for = TRUE) {
+
+        if (!is.language(expr))
+            return(expr)
+
         modified_env <- as_environment(modified, parent = parent)
-        variable_env <- as_environment(self$variables, parent = modified_env)
-        expr2 <- substituteDirect(expr, frame = self$aliases)
-        eval(expr2, variable_env)
+        envir <- as_environment(self$variables, parent = modified_env)
+
+        aliases <- all.vars(expr)
+        aliases <- aliases[is.element(aliases, names(self$aliases))]
+
+        for (a in aliases) {
+            sym <- self$aliases[[a]]
+            err <- tryCatch(eval(sym, envir), error = identity)
+            if (is_error(err))
+                stop("Alias '", a, "' evaluated to the following error:\n", err)
+        }
+
+        expr <- substituteDirect(expr, frame = self$aliases)
+
+        if (!split_for) return(eval(expr, envir))
+        else return(for_split(expr, envir = envir))
     }
 )},
 active = {list(
-    # nvar = function(arg) {
-    #     error_field_assign()
-    #     private$nvar
-    # },
+    nvar = function(arg) {
+        error_field_assign()
+        private$n_var
+    },
     ncon = function(arg) {
         error_field_assign()
         length(self$constraint$rhs)
     },
-    direction = function(arg) {
-        if (missing(arg)) return(private$dir)
-        if (is_character(arg, n = 1L) && tolower(arg) %in% c("min", "max"))
-            private$dir <- tolower(arg)
-        else stop("Direction must be either 'min' or 'max'.")
-    },
     solution = function(arg) {
         error_field_assign()
-        if (private$stat != "optimal")
+        if (private$.status != "optimal")
             warning("Problem is not optimal.\n")
         lapply(self$variables, \(x) {
             if (length(x$ind) == 1L)
@@ -511,20 +527,20 @@ active = {list(
     objective_value = function(arg) {
         error_field_assign()
         self$check_solved()
-        private$objval + self$objective_add
+        private$objval
     },
     status = function(arg) {
         error_field_assign()
-        private$stat
+        private$.status
     },
     sensitivity_objective = function(arg) {
         error_field_assign()
-        stopifnot(private$stat == "optimal")
+        stopifnot(private$.status == "optimal")
         if (self$any_integer())
             stop("Sensitivity unavailable for problems with integer/binary variables")
         objective <- array(
             dim = c(length(self$objective_fun), 3L),
-            dimnames = list(Variable = names(private$sol),
+            dimnames = list(Variable = names2(private$sol),
                             Bound = c("Lower", "Current", "Upper"))
         )
         sens <- get.sensitivity.obj(self$pointer)
@@ -535,7 +551,7 @@ active = {list(
     },
     sensitivity_rhs = function(arg) {
         error_field_assign()
-        stopifnot(private$stat == "optimal")
+        stopifnot(private$.status == "optimal")
         if (self$any_integer())
             stop("Sensitivity unavailable for problems with integer/binary variables")
         rhs <- array(

@@ -1,9 +1,12 @@
 
 is_lp_var <- function(x) {
-    "lp_var" %in% class(x)
+    inherits(x, "lp_var")
 }
 is_lp_con <- function(x) {
-    "lp_con" %in% class(x)
+    inherits(x, "lp_con")
+}
+is_for_split <- function(x) {
+    inherits(x, "ForSplit")
 }
 
 #' @export
