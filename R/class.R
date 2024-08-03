@@ -54,7 +54,7 @@ public = {list(
 
     objective_fun = numeric(),
     objective_add = 0,
-    objective_transform = identity,
+    # objective_transform = list(identity),
 
     pointer = NULL,
 
@@ -212,17 +212,17 @@ public = {list(
     #' Define objective function for a minimization problem.
     #' @param objective Uses the same syntax as constraints.
     #' Must be a single value, so use \code{sum()} when needed.
-    min = function(objective) {
+    min = function(objective, transform = identity) {
         private$dir <- "min"
-        private$set_objective(enexpr(objective))
+        private$set_objective(enexpr(objective), transform)
     },
     #' @description
     #' Define objective function for a maximization problem.
     #' @param objective Uses the same syntax as constraints.
     #' Must be a single value, so use \code{sum()} when needed.
-    max = function(objective) {
+    max = function(objective, transform = identity) {
         private$dir <- "max"
-        private$set_objective(enexpr(objective))
+        private$set_objective(enexpr(objective), transform)
     },
     #' @description
     #' Find an optimal solution.
@@ -438,11 +438,19 @@ public = {list(
         if (private$stat != "optimal")
             return()
 
+        raw <- private$objval
         val <- self$objective_value
         add <- self$objective_add
-        cat("\nObjective Value =", val - add)
-        if (add != 0)
-            cat("", ifelse(add > 0, "+", "-"), abs(add), "=", val)
+        trans <- self$objective_transform
+
+        if (identical(trans, identity)) {
+            cat("\nObjective Value =", raw)
+            if (add != 0) cat(ifelse(add > 0, " +", " -"), abs(add), "=", val)
+
+        } else {
+            cat("\nRaw Objective Value =", private$objval)
+            cat("\nTransformed Objective Value =", val)
+        }
 
         cat("\n\nSolution:\n\n")
         if (length(self$solution) == 1L)
@@ -464,13 +472,15 @@ private = {list(
     sol = numeric(),
     objval = NA_real_,
     stat = "unsolved",
-    set_objective = function(expr) {
+    set_objective = function(expr, trans) {
         joint_var <- private$eval(expr, parent = caller_env(2L), split_for = FALSE)
         self$objective_fun[] <- joint_var$coef
         self$objective_add <- joint_var$add
+        self$objective_transform <- trans
         self$reset_solution()
         invisible(self)
     },
+    objtrans = list(identity),
     feasible = function(tol = 2e-8) {
         list2env(self$constraint, environment())
         stopifnot(nrow(mat) > 0L)
@@ -533,7 +543,18 @@ active = {list(
     objective_value = function(arg) {
         error_field_assign()
         self$check_solved()
-        private$objval + self$objective_add
+        self$objective_transform(private$objval + self$objective_add)
+    },
+    objective_value_raw = function(arg) {
+        error_field_assign()
+        self$check_solved()
+        private$objval
+    },
+    objective_transform = function(arg) {
+        if (missing(arg))
+            private$objtrans [[1L]]
+        else
+            private$objtrans [[1L]] <- as_function(arg)
     },
     status = function(arg) {
         error_field_assign()

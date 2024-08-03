@@ -31,7 +31,36 @@ lp$var("x", myset = letters[1:5])
 
 # Posterior Transformations
 
-In a linear problem, the objective function must always be a linear function. Internally, this means each variable has a coefficient. Say we have an objective function such as this one:
+In a linear problem, the objective function must always be a linear function. Internally, this means each variable has a coefficient.
+
+## Addend
+
+EasyLP supports an addend, an extra coefficient to add or subtract from the objective value.
+
+Say that a company has a fix cost of 50, that doesn't depend on the production. We could implement it this way
+
+```{r}
+lp <- easylp$new()
+lp$var("x", lower=10, upper=500)
+lp$var("y", lower=10, upper=500)
+lp$min(4*x + 3*y + 50)
+lp$solve()
+lp
+```
+
+Notice how it's printed: 70 is the result of the internal objective function $4x + 3y$. Then, EasyLP adds the fixed cost of 50.
+
+If we call `lp$objective_value`, it returns 120. We can get the *raw* objective value (before transformation) by calling `lp$objective_value_raw`. Usually, these two are the same: they only differ when a posterior transformation is applied.
+
+```{r}
+lp$objective_value_raw
+lp$objective_add
+lp$objective_value
+```
+
+## Non-Linear Transformations
+
+Say now we have an objective function such as this one:
 
 $$
 \min{z = \log(x+y)}
@@ -43,11 +72,31 @@ $$
 \{\min{z = \log(x+y)}\} \equiv \{\min{z' = x+y}\}
 $$
 
-This is to say, the optimal solution will be the same, but the objective value will not. It is not possible to use a logarithm in EasyLP and it will throw an error.
+This is to say, the optimal solution will be the same, but the objective value will not. It is not possible to use a logarithm in EasyLP and it will throw an error, telling us that function *log* is not linear.
 
 ```{r}
-lp <- easylp$new()
-lp$var("x")
-lp$var("y")
 lp$min(log(x + y))
 ```
+
+Instead, we can use the `transform` argument to add a transformation.
+
+```{r}
+lp$min(x + y, transform = log)
+lp$solve()
+lp
+```
+
+The `transform` argument supports lambda notation. All of the following work:
+
+```{r}
+lp$min(x + y, log)
+lp$min(x + y, ~log(.))
+lp$min(x + y, \(obj) log(obj))
+lp$objective_transform <- function(obj) {
+    log(obj)
+}
+```
+
+### Warning!
+
+Transformations should be [monotonically increasing](https://en.wikipedia.org/wiki/Monotonic_function) functions. Otherwise, the problem is not equivalent. EasyLP does not currently check if functions satisfy this condition. If a function is monotonically decreasing, you should invert the direction of the problem, or redefine the function such that it increases. Keep in mind the solver optimizes the linear function, then transforms it.

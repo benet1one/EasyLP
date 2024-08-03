@@ -1,4 +1,7 @@
 
+# TODO
+# Check if function is monotonous and increasing.
+
 inside <- function(expr) {
     stopifnot(is.language(expr))
     if (is_symbol(expr))
