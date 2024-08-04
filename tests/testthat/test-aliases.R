@@ -13,7 +13,6 @@ lp$alias(
     Mar = market,
     made = rowSums(t),
     sold = colSums(t),
-    err = t[1, 2, 3]
 )
 
 lp$con(
@@ -23,5 +22,5 @@ lp$con(
 lp$constraint
 
 test_that("aliases", {
-    expect_error(lp$con(err == 1))
+    expect_error(lp$alias(err = t[1, 2, 3]))
 })

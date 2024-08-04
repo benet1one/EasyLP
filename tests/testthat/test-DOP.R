@@ -25,9 +25,7 @@ demanda <- parameter(c(1500, 3000, 2500), Super)
 
 
 lp <- easylp$new()
-lp$var("rec", DOP, lower = 0)
 lp$var("tdm", DOP, Molí, lower = 0)
-lp$var("ext", Molí, lower = 0)
 lp$var("tms", Molí, Super, lower = 0)
 
 lp$min(sum(cost_tdm * tdm)
@@ -36,14 +34,17 @@ lp$min(sum(cost_tdm * tdm)
      - 45000
 )
 
-lp$con(
-    rec_tdm = for(d in DOP)   sum(tdm[d, ]) == rec[d],
-    tdm_ext = for(m in Molí)  sum(tdm[, m] * coeficient_extracció) == ext[m],
-    ext_tms = for(m in Molí)  ext[m] == sum(tms[m, ]),
+lp$alias(
+    rec = rowSums(tdm),
+    ext = rowSums(tms)
+)
 
-    recolleccció = for(d in DOP)    rec[d] <= capacitat_recollecció[d],
-    extracció =    for(m in Molí)   sum(tdm[, m]) <= capacitat_extracció[m],
-    satisfacció =  for(s in Super)  sum(tms[, s]) >= demanda[s]
+lp$con(
+    tdm_ext =  for(m in Molí)
+        sum_for(d=DOP, tdm[d, m] * coeficient_extracció[d]) == ext[m],
+    recolleccció =  for(d in DOP)    rec[d] <= capacitat_recollecció[d],
+    extracció =     for(m in Molí)   sum(tdm[, m]) <= capacitat_extracció[m],
+    satisfacció =   for(s in Super)  sum(tms[, s]) >= demanda[s]
 )
 
 lp$solve()

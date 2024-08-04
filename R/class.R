@@ -54,7 +54,6 @@ public = {list(
 
     objective_fun = numeric(),
     objective_add = 0,
-    # objective_transform = list(identity),
 
     pointer = NULL,
 
@@ -339,10 +338,10 @@ public = {list(
     },
     #' @description
     #' Define aliases that can be used in constraints and more. Must be named.
-    #' Aliases are not checked when defined, but rather when they're used.
-    #' This means it's harder to trace back the error to the alias.
+    #' Evaluated when defined.
     alias = function(...) {
-        dots <- enexprs(...)
+        dots <- lapply(enexprs(...), private$eval,
+                       parent = caller_env(), split_for = FALSE)
         if (any(names2(dots) == ""))
             stop("Aliases must be named.")
         self$aliases <- append(self$aliases, dots)
@@ -495,19 +494,20 @@ private = {list(
             return(expr)
 
         modified_env <- as_environment(modified, parent = parent)
-        envir <- as_environment(self$variables, parent = modified_env)
+        var_env <- as_environment(self$variables, parent = modified_env)
+        envir <- as_environment(self$aliases, parent = var_env)
 
-        aliases <- all.vars(expr)
-        aliases <- aliases[is.element(aliases, names(self$aliases))]
-
-        for (a in aliases) {
-            sym <- self$aliases[[a]]
-            err <- tryCatch(eval(sym, envir), error = identity)
-            if (is_error(err))
-                stop("Alias '", a, "' evaluated to the following error:\n", err)
-        }
-
-        expr <- substituteDirect(expr, frame = self$aliases)
+        # aliases <- all.vars(expr)
+        # aliases <- aliases[is.element(aliases, names(self$aliases))]
+        #
+        # for (a in aliases) {
+        #     sym <- self$aliases[[a]]
+        #     err <- tryCatch(eval(sym, envir), error = identity)
+        #     if (is_error(err))
+        #         stop("Alias '", a, "' evaluated to the following error:\n", err)
+        # }
+        #
+        # expr <- substituteDirect(expr, frame = self$aliases)
 
         if (!split_for) return(eval(expr, envir))
         else return(for_split(expr, envir = envir))
