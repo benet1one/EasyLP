@@ -13,7 +13,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 Use `devtools` to install this package from GitHub.
 
-```{r}
+```{r message=FALSE, warning=FALSE}
 # install.packages("devtools")
 devtools::install_github("benet1one/EasyLP", build_vignettes = TRUE)
 ```
@@ -41,8 +41,8 @@ lp
 
 Make sure to `build_vignettes = TRUE` and discover everything you can do using the powerful and intuitive syntax.
 
-```{r}
-vignette("easylp")
-vignette("objective")
-vignette("constraints")
+```{r message=FALSE, warning=FALSE}
+# vignette("easylp")
+# vignette("objective")
+# vignette("constraints")
 ```
