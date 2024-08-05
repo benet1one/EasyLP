@@ -21,15 +21,11 @@ lp$con(
 )
 
 lp$solve()
-sol <- lp$solution
-despesa_total <- sum(sol$x * preu)
-
-# print(lp)
-# cat("Benefici =", lp$objective_value,
-#   "\nDespesa  =", despesa_total, "\n")
+lp$import_solution()
 
 test_that("correct solution", {
-    expect_equal(lp$solution$x, c(0, 2, 3, 49), ignore_attr = TRUE)
+    expect_equal(x, c(0, 2, 3, 49), ignore_attr = TRUE)
+    expect_equal(quin, c(0, 1, 1, 1), ignore_attr = TRUE)
 })
 
 test_that("become unfeasable", {

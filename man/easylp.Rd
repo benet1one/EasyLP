@@ -72,7 +72,16 @@ and third column is the upper bound.}
 'max' the objective function. Automatically changed when defining
 objective with \code{easylp$min(), easylp$max()}}
 
-\item{\code{objective_value}}{Value of the objective function with the optimal solution.}
+\item{\code{objective_value}}{Value of the objective function with the optimal solution AFTER
+adding \code{objective_add} and applying the posterior transformation if any.
+See \code{vignette("objective")}.}
+
+\item{\code{objective_value_raw}}{Value of the objective function with the optimal solution BEFORE
+adding \code{objective_add} and applying the posterior transformation if any.
+See \code{vignette("objective")}.}
+
+\item{\code{objective_transform}}{Function applied to the objective function.
+See \code{vignette("objective")}.}
 
 \item{\code{status}}{Character indicating the status of the problem. Initialized as
 'unsolved'. Changes when solving the problem using \code{easylp$solve()}.}
@@ -94,6 +103,7 @@ objective with \code{easylp$min(), easylp$max()}}
 \item \href{#method-easylp-check_solved}{\code{easylp$check_solved()}}
 \item \href{#method-easylp-any_integer}{\code{easylp$any_integer()}}
 \item \href{#method-easylp-reset_solution}{\code{easylp$reset_solution()}}
+\item \href{#method-easylp-import_solution}{\code{easylp$import_solution()}}
 \item \href{#method-easylp-test}{\code{easylp$test()}}
 \item \href{#method-easylp-print}{\code{easylp$print()}}
 \item \href{#method-easylp-finalize}{\code{easylp$finalize()}}
@@ -163,7 +173,7 @@ Define constraints.
 \item{\code{...}}{Constraints. See \code{vignette("constraints")}. Can be named.
 Supports \code{!!!} (unquote-splice).}
 
-\item{\code{parent}}{Used for recursion, do not change.}
+\item{\code{envir}}{Environment where to evaluate constraints.}
 }
 \if{html}{\out{</div>}}
 }
@@ -183,7 +193,7 @@ vignette("constraints")
 \subsection{Method \code{min()}}{
 Define objective function for a minimization problem.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{easylp$min(objective)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{easylp$min(objective, transform = identity)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
@@ -191,6 +201,11 @@ Define objective function for a minimization problem.
 \describe{
 \item{\code{objective}}{Uses the same syntax as constraints.
 Must be a single value, so use \code{sum()} when needed.}
+
+\item{\code{transform}}{Posterior function to apply to the objective function.
+Does not change the behaviour of the solver.
+You must ensure it's a monotonically increasing function. Otherwise,
+the solution might not be optimal. See \code{vignette("objective")}.}
 }
 \if{html}{\out{</div>}}
 }
@@ -201,7 +216,7 @@ Must be a single value, so use \code{sum()} when needed.}
 \subsection{Method \code{max()}}{
 Define objective function for a maximization problem.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{easylp$max(objective)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{easylp$max(objective, transform = identity)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
@@ -209,6 +224,11 @@ Define objective function for a maximization problem.
 \describe{
 \item{\code{objective}}{Uses the same syntax as constraints.
 Must be a single value, so use \code{sum()} when needed.}
+
+\item{\code{transform}}{Posterior function to apply to the objective function.
+Does not change the behaviour of the solver.
+You must ensure it's a monotonically increasing function. Otherwise,
+the solution might not be optimal. See \code{vignette("objective")}.}
 }
 \if{html}{\out{</div>}}
 }
@@ -297,12 +317,17 @@ By default, 'x' is bounded between it's lower and upper bound when
 \if{latex}{\out{\hypertarget{method-easylp-alias}{}}}
 \subsection{Method \code{alias()}}{
 Define aliases that can be used in constraints and more. Must be named.
-Aliases are not checked when defined, but rather when they're used.
-This means it's harder to trace back the error to the alias.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{easylp$alias(...)}\if{html}{\out{</div>}}
 }
 
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{...}}{Aliases. Must be named.}
+}
+\if{html}{\out{</div>}}
+}
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-easylp-check_feasible"></a>}}
@@ -354,6 +379,30 @@ The pointer to the lpSolveAPI model is kept. Used internally.
 \if{html}{\out{<div class="r">}}\preformatted{easylp$reset_solution()}\if{html}{\out{</div>}}
 }
 
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-easylp-import_solution"></a>}}
+\if{latex}{\out{\hypertarget{method-easylp-import_solution}{}}}
+\subsection{Method \code{import_solution()}}{
+Import the solution into an environment.
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{easylp$import_solution(envir = caller_env(), silent = FALSE)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{envir}}{Environemt to import the solution to.
+Defaults to the caller environment.}
+
+\item{\code{silent}}{Whether to suppress the message.
+Equivalent to:
+\code{envir$x <- lp$solution$x}
+\code{envir$y <- lp$solution$y}
+\code{...}}
+}
+\if{html}{\out{</div>}}
+}
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-easylp-test"></a>}}

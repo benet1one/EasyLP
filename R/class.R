@@ -31,7 +31,14 @@ library(rlang)
 #' @field objective_fun Vector of coefficients for the objective function.
 #' @field objective_add Optional value to add to the objective value.
 #' Automatically set when there's an added/subtracted constant in the objective function.
-#' @field objective_value Value of the objective function with the optimal solution.
+#' @field objective_value Value of the objective function with the optimal solution AFTER
+#' adding \code{objective_add} and applying the posterior transformation if any.
+#' See \code{vignette("objective")}.
+#' @field objective_value_raw Value of the objective function with the optimal solution BEFORE
+#' adding \code{objective_add} and applying the posterior transformation if any.
+#' See \code{vignette("objective")}.
+#' @field objective_transform Function applied to the objective function.
+#' See \code{vignette("objective")}.
 #' @field status Character indicating the status of the problem. Initialized as
 #' 'unsolved'. Changes when solving the problem using \code{easylp$solve()}.
 #' @field pointer Pointer to an lpSolveAPI object. Do not modify it, as
@@ -95,10 +102,9 @@ public = {list(
             upper <- 1
         }
 
-        if (...length() == 0L)
+        sets <- dots_list(..., .named = TRUE)
+        if (length(sets) == 0L)
             sets <- list(scalar = "")
-        else
-            sets <- dots_list(..., .named = TRUE)
 
         ind <- array(dim = lengths(sets), dimnames = sets)
         ind[] <- 1:length(ind) + private$n_var
@@ -141,10 +147,10 @@ public = {list(
         )
 
         # Update objective function
-        self$objective_fun <- c(self$objective_fun, numeric(len) |> setNames(nams))
+        self$objective_fun <- c(self$objective_fun, numeric(len) |> set_names(nams))
 
         # Update solution
-        private$sol <- c(private$sol, numeric(len) |> setNames(nams))
+        private$sol <- c(private$sol, numeric(len) |> set_names(nams))
         if (lower > 0 || upper < 0)
             self$reset_solution()
 
@@ -164,7 +170,7 @@ public = {list(
             add = add
         ) |> structure(class = "lp_var")
 
-        self$variables <- append(self$variables, list(x) |> setNames(name))
+        self$variables <- append(self$variables, list(x) |> set_names(name))
         private$n_var <- private$n_var + len
         invisible(self)
     },
@@ -172,7 +178,7 @@ public = {list(
     #' Define constraints.
     #' @param ... Constraints. See \code{vignette("constraints")}. Can be named.
     #' Supports \code{!!!} (unquote-splice).
-    #' @param parent Used for recursion, do not change.
+    #' @param envir Environment where to evaluate constraints.
     #' @export
     #' @examples
     #' # Make sure to build vignettes when installing the package.
@@ -211,6 +217,10 @@ public = {list(
     #' Define objective function for a minimization problem.
     #' @param objective Uses the same syntax as constraints.
     #' Must be a single value, so use \code{sum()} when needed.
+    #' @param transform Posterior function to apply to the objective function.
+    #' Does not change the behaviour of the solver.
+    #' You must ensure it's a monotonically increasing function. Otherwise,
+    #' the solution might not be optimal. See \code{vignette("objective")}.
     min = function(objective, transform = identity) {
         private$dir <- "min"
         private$set_objective(enexpr(objective), transform)
@@ -219,6 +229,10 @@ public = {list(
     #' Define objective function for a maximization problem.
     #' @param objective Uses the same syntax as constraints.
     #' Must be a single value, so use \code{sum()} when needed.
+    #' @param transform Posterior function to apply to the objective function.
+    #' Does not change the behaviour of the solver.
+    #' You must ensure it's a monotonically increasing function. Otherwise,
+    #' the solution might not be optimal. See \code{vignette("objective")}.
     max = function(objective, transform = identity) {
         private$dir <- "max"
         private$set_objective(enexpr(objective), transform)
@@ -338,7 +352,7 @@ public = {list(
     },
     #' @description
     #' Define aliases that can be used in constraints and more. Must be named.
-    #' Evaluated when defined.
+    #' @param ... Aliases. Must be named.
     alias = function(...) {
         dots <- lapply(enexprs(...), private$eval,
                        parent = caller_env(), split_for = FALSE)
@@ -390,6 +404,21 @@ public = {list(
         private$sol[] <- 0
         private$objval <- NA_real_
         invisible(self)
+    },
+    #' @description
+    #' Import the solution into an environment.
+    #' @param envir Environemt to import the solution to.
+    #' Defaults to the caller environment.
+    #' @param silent Whether to suppress the message.
+    #' Equivalent to:
+    #' \code{envir$x <- lp$solution$x}
+    #' \code{envir$y <- lp$solution$y}
+    #' \code{...}
+    import_solution = function(envir = caller_env(), silent = FALSE) {
+        self$check_solved()
+        list2env(self$solution, envir = envir)
+        if (!silent) message("Solution imported to ", format(envir))
+        self
     },
 
     #' @description
@@ -472,9 +501,17 @@ private = {list(
     objval = NA_real_,
     stat = "unsolved",
     set_objective = function(expr, trans) {
-        joint_var <- private$eval(expr, parent = caller_env(2L), split_for = FALSE)
-        self$objective_fun[] <- joint_var$coef
-        self$objective_add <- joint_var$add
+        x <- private$eval(expr, parent = caller_env(2L), split_for = FALSE)
+        if (is_lp_con(x))
+            stop("Objective function evaluated to a constraint. It must evaluate to a variable or sum of variables.")
+        if (!is_lp_var(x))
+            stop("Objective function didn't evaluate to a variable or sum of variables.")
+        if (length(x) == 0)
+            stop("Objective function doesn't contain any variables.")
+        if (length(x) > 1)
+            stop("Objective function contains multiple variables. Please wrap them in a sum().")
+        self$objective_fun[] <- x$coef
+        self$objective_add[] <- x$add
         self$objective_transform <- trans
         self$reset_solution()
         invisible(self)
@@ -486,7 +523,7 @@ private = {list(
         lhs <- mat %*% private$sol
         nam <- rownames(mat)
         nam[nam == ""] <- which(nam == "")
-        compare_tol(lhs, rhs, dir, tol) |> setNames(nam)
+        compare_tol(lhs, rhs, dir, tol) |> set_names(nam)
     },
     eval = function(expr, parent = caller_env(2L), split_for = TRUE) {
 

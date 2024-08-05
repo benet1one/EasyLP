@@ -80,7 +80,7 @@ flatten_for_split <- function(split, init_name = "") {
             }
 
         } else {
-            atoms <<- append(atoms, list(x) |> setNames(name))
+            atoms <<- append(atoms, list(x) |> set_names(name))
         }
     }
 

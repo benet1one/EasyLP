@@ -43,5 +43,6 @@ Make sure to `build_vignettes = TRUE` and discover everything you can do using t
 
 ```{r}
 vignette("easylp")
+vignette("objective")
 vignette("constraints")
 ```

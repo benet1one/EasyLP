@@ -2,7 +2,7 @@
 title: "Constraints in Depth"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{constraints}
+  %\VignetteIndexEntry{Constraints in Depth}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
@@ -20,7 +20,7 @@ library(easylp)
 
 # Introduction
 
-There are lots of different ways to define constraints in EasyLP. This vignette will teach you all of them and the nuances between them .
+There are lots of different ways to define constraints in EasyLP. This vignette will teach you all of them and the nuances between them. It does not assume any prior knowledge of EasyLP.
 
 ## Basics
 
@@ -37,8 +37,7 @@ As you can see, we don't need to put the variables on the left hand side and the
 
 ```{r}
 lp$con(x + 3*(y + 1) >= 0)
-# Equivalent to
-# lp$con(x + 3*y + 3 >= 0)
+# Equivalent to: lp$con(x + 3*y + 3 >= 0)
 ```
 
 Now we can define an equality constraint. And we'll name it, for good measure. Notice how the single equal `=` separates the name from the constraint, and the double equal `==` is used to represent equality. Just like base R.
@@ -51,7 +50,6 @@ You may have seen linear constraints represented as $Ax\lesseqgtr b$. EasyLP sto
 
 ```{r}
 lp$constraint
-
 # This object is actually a list with these 3 fields:
 # lp$constraint$mat
 # lp$constraint$dir
@@ -150,9 +148,9 @@ lp3$con(name =  shirts >= pants)
 Notice the only difference between the three is how the constraints are named. My personal favorite is the second method, because it's shorter than the first, and more intuitive than the third.
 
 ```{r}
-lp1$constraint
-lp2$constraint
-lp3$constraint
+lp1$constraint # 'for' outside of lp$con
+lp2$constraint # 'for' inside of lp$con
+lp3$constraint # vectorized
 ```
 
 ## Matrix Variables

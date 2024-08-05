@@ -39,7 +39,7 @@ print.lp_var <- function(x, ...) {
     return(x)
 }
 #' @export
-length.lp_var <- function(x) length(x$ind)
+length.lp_var <- function(x) nrow(x$coef)
 #' @export
 dim.lp_var <- function(x) dim(x$ind)
 #' @export
@@ -64,6 +64,11 @@ dimnames.lp_var <- function(x) dimnames(x$ind)
     x$coef <- x$coef[rows, , drop = FALSE]
     x$add  <- x$add[rows]
     return(x)
+}
+#' @export
+`[[.lp_var` <- function(x, ...) {
+    stop("Double square brackets '[[]]' are unsupported for linear variables.",
+         "Use '[]' instead.")
 }
 
 #' @export
@@ -254,6 +259,7 @@ mean.lp_var <- function(x, ...) {
     sum(x) / length(x)
 }
 #' @export
+#' @importFrom stats weighted.mean
 weighted.mean.lp_var <- function(x, w, ...) {
     check_dots_empty()
     if (length(w) != length(x)) stop("'x' and 'w' must have the same length")

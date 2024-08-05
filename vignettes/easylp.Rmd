@@ -2,7 +2,7 @@
 title: "Introduction to EasyLP"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{easylp}
+  %\VignetteIndexEntry{Introduction to EasyLP}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
@@ -199,4 +199,21 @@ lp$con(
 
 lp$solve()
 lp
+```
+
+# Tips and Tricks
+
+## Importing Solution
+
+You can import the solution into any environment, so that they can be later used in the code.
+
+```{r}
+lp <- easylp$new()
+lp$var("x", lower=0)
+lp$var("y", lower=2)
+lp$min(x + y)
+lp$con(2*x + y >= 10)
+lp$solve()
+lp$import_solution()
+x; y
 ```
