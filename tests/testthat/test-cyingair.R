@@ -21,7 +21,7 @@ lp$con(
 )
 
 lp$solve()
-lp$import_solution()
+lp$import_solution(silent = TRUE)
 
 test_that("correct solution", {
     expect_equal(x, c(0, 2, 3, 49), ignore_attr = TRUE)

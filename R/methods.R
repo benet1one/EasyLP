@@ -50,11 +50,13 @@ dimnames.lp_var <- function(x) dimnames(x$ind)
     if (!x$indexable)
         stop("Cannot index this result.")
 
+    # find_incorrect_index(x$ind, ...) |> print()
+
     old_ind <- x$ind
     x$ind <- `[`(x$ind, ..., drop=FALSE)
 
     if (anyNA(x$ind))
-        stop("Variable ", format(enexpr(x)), " was wrongly indexed.")
+        stop("Variable was wrongly indexed.")
 
     x$selected[] <- FALSE
     x$selected[x$ind] <- TRUE

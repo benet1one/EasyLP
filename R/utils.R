@@ -1,6 +1,6 @@
 
 # TODO
-# Check if function is monotonous and increasing.
+# Check if transformation is monotonous and increasing.
 
 inside <- function(expr) {
     stopifnot(is.language(expr))
@@ -99,6 +99,36 @@ join_constraints <- function(constraint, ...) {
         constraint$rhs <- c(constraint$rhs, unname(con$rhs))
     }
     constraint
+}
+
+find_incorrect_index <- function(x, ...) {
+
+    if (...length() == 0L)
+        return(FALSE)
+
+    dots <- dots_list(..., .ignore_empty = "none", .preserve_empty = TRUE)
+
+    if (length(dots) == 1L) {
+        index <- dots[[1L]]
+        for (i in index) {
+            value <- try(x[[index]], silent = TRUE)
+            if (inherits(value, "try-error"))
+                return(list(index, dim = 1))
+        }
+        return(FALSE)
+
+    } else {
+        for (d in seq_along(dots))  if (is_missing(dots[[d]]))
+            dots[[d]] <- 1
+        for (d in seq_along(dots))  for (i in dots[[d]]) {
+            indices <- dots
+            indices[[d]] <- i
+            value <- try(do.call(`[[`, append(list(x), indices)), silent = TRUE)
+            if (inherits(value, "try-error"))
+                return(list(i, dim = d))
+        }
+        return(FALSE)
+    }
 }
 
 name_variable <- function(name, sets) {
