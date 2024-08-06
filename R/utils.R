@@ -166,8 +166,14 @@ error_field_assign <- function(message = "Cannot modify this field.") {
         stop(message)
 }
 
+ensure_is_not_constraint <- function(x, funname) {
+    if (is_lp_con(x))
+        stop("Cannot apply function '", funname, "' to a constraint.\n",
+             "Did you accidentally write the constraint inside '", funname, "()'?")
+}
 modified <- within(list(), {
     diag <- function(x = 1, nrow, ncol, names = TRUE) {
+        ensure_is_not_constraint(x, "diag")
         if (!is_lp_var(x))
             return(base::diag(x, nrow, ncol, names))
         warn_changed_args(nrow = , ncol = , names = TRUE)
@@ -178,7 +184,7 @@ modified <- within(list(), {
         return(x)
     }
     apply <- function(X, MARGIN, FUN, ..., simplify = TRUE) {
-
+        ensure_is_not_constraint(X, "apply")
         if (!is_lp_var(X))
             return(base::apply(X, MARGIN, FUN, ..., simplify))
 
@@ -219,6 +225,7 @@ modified <- within(list(), {
         return(X)
     }
     rowSums  <- function(x, na.rm = FALSE, dims = 1) {
+        ensure_is_not_constraint(x, "rowSums")
         if (!is_lp_var(x))
             return(base::rowSums(x, na.rm, dims))
         warn_changed_args(
@@ -229,6 +236,7 @@ modified <- within(list(), {
         apply(x, 1L, sum)
     }
     rowMeans <- function(x, na.rm = FALSE, dims = 1) {
+        ensure_is_not_constraint(x, "rowMeans")
         if (!is_lp_var(x))
             return(base::rowMeans(x, na.rm, dims))
         warn_changed_args(
@@ -239,6 +247,7 @@ modified <- within(list(), {
         apply(x, 1L, mean)
     }
     colSums  <- function(x, na.rm = FALSE, dims = 1) {
+        ensure_is_not_constraint(x, "colSums")
         if (!is_lp_var(x))
             return(base::colSums(x, na.rm, dims))
         warn_changed_args(
@@ -249,6 +258,7 @@ modified <- within(list(), {
         apply(x, 2L, sum)
     }
     colMeans <- function(x, na.rm = FALSE, dims = 1) {
+        ensure_is_not_constraint(x, "colMeans")
         if (!is_lp_var(x))
             return(base::colMeans(x, na.rm, dims))
         warn_changed_args(

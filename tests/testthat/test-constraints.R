@@ -28,5 +28,6 @@ test_that("invalid variable operations", {
 
 test_that("badly defined constraints", {
     expect_error(lp$con(5))
+    expect_error(lp$con(rowSums(x == 1)))
     expect_warning(lp$con(x[0] == integer()))
 })
