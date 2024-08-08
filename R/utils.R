@@ -179,6 +179,8 @@ update_bounds <- function(x, varlist) {
             x$add[k]
     }
 
+    upper[is.nan(upper)] <- 0
+    lower[is.nan(lower)] <- 0
     x$bound["Upper"] <- max(upper)
     x$bound["Lower"] <- min(lower)
     return(x)

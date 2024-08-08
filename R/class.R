@@ -89,7 +89,7 @@ public = {list(
                   is_scalar_logical(binary),
                   length(lower) == 1L,
                   length(upper) == 1L,
-                  lower < upper)
+                  lower <= upper)
 
         if (is.element(name, names2(self$variables)))
             stop("Variable '", name, "' already defined in this model.")
@@ -337,8 +337,7 @@ public = {list(
         b <- private$eval(enexpr(binary), split_for = FALSE)
 
         if (!b$binary)
-            warning("Variable '", format(enexpr(binary)), "' is not binary.",
-                    "Result may not be as expected.")
+            warning("Variable '", deparse1(enexpr(binary)), "' is not binary.")
 
         if (max1 != x$bound[2L] || max0 != x$bound[2L])
             self$con(assoc_max =  !!enexpr(x) <=
