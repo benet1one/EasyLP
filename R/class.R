@@ -188,23 +188,25 @@ public = {list(
         dots <- enexprs(...)
         for (k in seq_along(dots)) {
 
-            constraint <- private$eval(dots[[k]], envir)
+            ref <- names2(dots)[k]
+            if (ref == "") ref <- k
+            constraint <- try(private$eval(dots[[k]], envir), silent = TRUE)
+
+            if (inherits(constraint, "try-error"))
+                stop("Constraint '", ref, "' evaluated to an error:\n", constraint)
 
             if (is_for_split(constraint)) {
                 split <- flatten_for_split(constraint, names2(dots)[k])
                 if (!is_lp_con(split[[1L]]))
                     stop("Constraint did not evaluate to an (in)equality.")
                 self$constraint <- join_constraints(self$constraint, !!!split)
-                # self$con(!!!split, envir = envir)
                 next
             }
 
-            ref <- if (names2(dots)[k] != "") names2(dots)[k]  else k
-
             if (!is_lp_con(constraint))
-                stop("Constraint ", ref, " did not evaluate to an (in)equality.")
+                stop("Constraint '", ref, "' did not evaluate to an (in)equality.")
             if (nrow(constraint$mat) == 0L) {
-                warning("Constraint ", ref, " is empty.")
+                warning("Constraint '", ref, "' is empty.")
                 next
             }
             constraint <- name_constraint(constraint, names2(dots)[k])

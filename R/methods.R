@@ -50,7 +50,7 @@ dimnames.lp_var <- function(x) dimnames(x$ind)
     if (!x$indexable)
         stop("Cannot index this result.")
 
-    # find_incorrect_index(x$ind, ...) |> print()
+    find_incorrect_index(x$ind, ...)
 
     old_ind <- x$ind
     x$ind <- `[`(x$ind, ..., drop=FALSE)

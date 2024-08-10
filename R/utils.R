@@ -101,33 +101,43 @@ join_constraints <- function(constraint, ...) {
     constraint
 }
 
+is_index_valid <- function(ind, len = NULL, nams = NULL) {
+    if (is.numeric(ind))
+        return(!is.null(len) && all(ind >= 1) && all(ind < len + 1))
+    if (is.factor(ind))
+        ind <- as.character(ind)
+    if (is.character(ind))
+        return(!is.null(nams) && all(ind %in% nams))
+    return(FALSE)
+}
 find_incorrect_index <- function(x, ...) {
 
     if (...length() == 0L)
-        return(FALSE)
+        return()
 
     dots <- dots_list(..., .ignore_empty = "none", .preserve_empty = TRUE)
 
     if (length(dots) == 1L) {
-        index <- dots[[1L]]
-        for (i in index) {
-            value <- try(x[[index]], silent = TRUE)
-            if (inherits(value, "try-error"))
-                return(list(index, dim = 1))
-        }
-        return(FALSE)
+        ind <- dots[[1L]]
+        len <- length(x)
+        nams <- names(x)
 
-    } else {
-        for (d in seq_along(dots))  if (is_missing(dots[[d]]))
-            dots[[d]] <- 1
-        for (d in seq_along(dots))  for (i in dots[[d]]) {
-            indices <- dots
-            indices[[d]] <- i
-            value <- try(do.call(`[[`, append(list(x), indices)), silent = TRUE)
-            if (inherits(value, "try-error"))
-                return(list(i, dim = d))
-        }
-        return(FALSE)
+        if (!is_index_valid(ind, len, nams))
+            stop("Invalid subscript")
+
+    } else for (d in seq_along(dots)) {
+        ind <- dots[[d]]
+        len <- dim(x)[d]
+        nams <- dimnames(x)[[d]]
+
+        if (is_missing(ind) || is_index_valid(ind, len, nams))
+            next
+
+        dimtitle <- names(dimnames(x))[d]
+        if (is.null(dimtitle)) dimtitle <- d
+
+        browser()
+        stop("Invalid subscript on dimension ", dimtitle)
     }
 }
 
