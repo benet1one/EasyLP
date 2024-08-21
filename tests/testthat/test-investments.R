@@ -47,6 +47,5 @@ test_that("correct solution", {
 
 test_that("wrong indexes", {
     expect_error(lp$variables$x[500])
-    # TODO
-    # expect_error(lp$variables$x[0])
+    expect_error(lp$variables$x[0])
 })
