@@ -82,21 +82,63 @@ lp$direction
 
 # Defining the Objective Function
 
-This section is unfinished.
+The result of the objective function must be a single value. For instance, the following code will throw an error.
 
-## Sums
+```{r, error=TRUE}
+lp <- easylp$new()
+lp$var('x', my_set = 1:3)
+lp$min(x)
+```
 
-There are different functions to sum array variables.
+The message tells us to wrap the values in a `sum()` such that the 3 values become 1. This section discusses different methods of wrapping values.
 
-### sum
+## Sum and Mean
 
-This function works the same way it works in R. Adds all the values from an array.
+These functions work just like they do in R. Sum adds all the values from an array, and mean divides this result by the length of the array. Weighted means are also supported.
 
 ```{r}
 lp <- easylp$new()
-lp$var("x", rows = 1:2, cols = LETTERS[1:3], lower=0, upper=10)
-lp$max(sum(x))
-lp$objective_fun
+lp$var('x', rows = 1:2, cols = LETTERS[1:3])
+lp$var('y', rows = 1:2)
+( lp$min(sum(x)) )
+( lp$min(sum(x, y)) )
+( lp$min(sum(x) + mean(y)) )
+( lp$min(sum(x) + weighted.mean(y, c(1, 3))) )
+```
+
+## Sums and Means Across Margins
+
+Functions `rowSums(), colSums(), rowMeans(), colMeans()` are supported, as well as `apply()`. For more information about these functions, see their documentation in base R. Generally, their use is not recommended in favor of `sum_for()`.
+
+```{r}
+( lp$min(sum(colSums(x) * 1:3)) )
+( lp$min(sum(rowSums(x) * 4:5)) )
+```
+
+## Sum For
+
+The `sum_for()` notation is similar to the way sums are written in math. See these 2 examples to understand how to use it, and read the documentation for more information.
+
+$$
+\min\sum_{i=1}^{2}{y_i \cdot (a_i + i)}
+$$
+
+```{r}
+a = 4:5
+(lp$min(
+    sum_for(i=1:2, y[i] * (a[i] + i))
+))
+```
+
+$$
+\max\sum_{i=1}^2 \sum_{j\in\{A,B,C\}} {(x_{ij} + y_i) \cdot b_j}
+$$
+
+```{r}
+b = c(A=3, B=1, C=2)
+(lp$min(
+    sum_for(i=1:2, j=names(b), (x[i,j] + y[i]) * b[j])
+))
 ```
 
 ## Examples
@@ -194,8 +236,7 @@ It's possible to use both an addend and a posterior transformation, but beware! 
 `objective_value == transform(raw_value + addend) != transform(raw_value) + addend`
 
 ```{r}
-lp$min(x + y - 15, ~ .*2)
+lp$min(x + y + 10, ~ .*2)
 lp$solve()
 lp
 ```
-

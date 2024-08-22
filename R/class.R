@@ -223,6 +223,7 @@ public = {list(
     #' Does not change the behaviour of the solver.
     #' You must ensure it's a monotonically increasing function. Otherwise,
     #' the solution might not be optimal. See \code{vignette("objective")}.
+    #' @returns The objective function. \code{$objective_fun}.
     min = function(objective, transform = identity) {
         private$dir <- "min"
         private$set_objective(enexpr(objective), transform)
@@ -235,6 +236,7 @@ public = {list(
     #' Does not change the behaviour of the solver.
     #' You must ensure it's a monotonically increasing function. Otherwise,
     #' the solution might not be optimal. See \code{vignette("objective")}.
+    #' @returns The objective function. \code{$objective_fun}.
     max = function(objective, transform = identity) {
         private$dir <- "max"
         private$set_objective(enexpr(objective), transform)
@@ -477,8 +479,8 @@ public = {list(
             if (add != 0) cat(ifelse(add > 0, " +", " -"), abs(add), "=", val)
 
         } else {
-            cat("\nRaw Objective Value =", private$objval)
-            cat("\nTransformed Objective Value =", val)
+            cat("\nRaw Objective Value =", self$objective_value_raw)
+            cat("\nTransformed Objective Value =", self$objective_value)
         }
 
         cat("\n\nSolution:\n\n")
@@ -515,7 +517,8 @@ private = {list(
         self$objective_add[] <- x$add
         self$objective_transform <- trans
         self$reset_solution()
-        invisible(self)
+
+        invisible(self$objective_fun)
     },
     objtrans = list(identity),
     feasible = function(tol = 2e-8) {

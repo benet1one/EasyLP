@@ -351,7 +351,7 @@ parameter <- function(x, ..., byrow = FALSE) {
     }
 }
 
-#' Sum with indexing variables.
+#' Sum with indexing variables
 #' @description
 #' Calculates results independently and adds them.
 #' @param ... Named arguments are interpreted as indexing variables. One
@@ -360,13 +360,14 @@ parameter <- function(x, ..., byrow = FALSE) {
 #' @returns The sum of all evaluated expressions.
 #' @export
 #' @examples
-#' mat <- matrix(rpois(12, 2), ncol = 4L)
+#' mat <- matrix(rpois(12, 2), nrow = 3, ncol = 4)
 #' vec <- rpois(4, 5)
-#' sum_for(i=1:3, mat[i, ] * vec[i])
 #' sum(mat %*% vec)
+#' sum_for(i=1:3, mat[i, ] * vec)
+#' sum_for(i=1:3, j=1:4, mat[i, j] * vec[j])
 sum_for <- function(..., .env = caller_env()) {
     dots <- enexprs(...)
-    unnamed <- names(dots) == ""
+    unnamed <- names2(dots) == ""
     named <- !unnamed
     if (sum(unnamed) != 1L)
         stop("No unnamed expression.")

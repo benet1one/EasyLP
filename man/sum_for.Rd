@@ -2,7 +2,7 @@
 % Please edit documentation in R/utils.R
 \name{sum_for}
 \alias{sum_for}
-\title{Sum with indexing variables.}
+\title{Sum with indexing variables}
 \usage{
 sum_for(..., .env = caller_env())
 }
@@ -19,8 +19,9 @@ The sum of all evaluated expressions.
 Calculates results independently and adds them.
 }
 \examples{
-mat <- matrix(rpois(12, 2), ncol = 4L)
+mat <- matrix(rpois(12, 2), nrow = 3, ncol = 4)
 vec <- rpois(4, 5)
-sum_for(i=1:3, mat[i, ] * vec[i])
 sum(mat \%*\% vec)
+sum_for(i=1:3, mat[i, ] * vec)
+sum_for(i=1:3, j=1:4, mat[i, j] * vec[j])
 }

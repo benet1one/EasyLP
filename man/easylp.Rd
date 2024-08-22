@@ -3,6 +3,11 @@
 \name{easylp}
 \alias{easylp}
 \title{Easy Linear Problem}
+\value{
+The objective function. \code{$objective_fun}.
+
+The objective function. \code{$objective_fun}.
+}
 \description{
 Object containing all the information about a linear problem, as well
 as functions to define, modify, and solve it.
