@@ -88,11 +88,13 @@ public = {list(
                   is_scalar_logical(integer),
                   is_scalar_logical(binary),
                   length(lower) == 1L,
-                  length(upper) == 1L,
-                  lower <= upper)
+                  length(upper) == 1L)
 
         if (is.element(name, names2(self$variables)))
             stop("Variable '", name, "' already defined in this model.")
+
+        if (lower > upper)
+            warning("Lower bound is higher than upper bound. Problem will be unfeasible.")
 
         if (binary) {
             integer <- FALSE
@@ -254,7 +256,6 @@ public = {list(
         if (!is.element(private$dir, c("min", "max")))
             stop("Direction must be either 'min' or 'max'.")
 
-        # try(delete.lp(self$pointer), silent = TRUE)
         prob <- make.lp(nrow = 0, ncol = private$n_var)
         set.objfn(prob, self$objective_fun)
         lp.control(prob, sense = private$dir, ...)
@@ -291,6 +292,9 @@ public = {list(
             "13" = "no feasible branch and bound solution was found",
             "undocumented status"
         )
+
+        for (x in self$variables)  if (x$bound[1L] > x$bound[2L])
+            private$stat <- "unfeasible"
 
         self$pointer <- prob
         invisible(self)
@@ -603,7 +607,8 @@ active = {list(
     },
     sensitivity_objective = function(arg) {
         error_field_assign()
-        stopifnot(private$stat == "optimal")
+        if (private$stat != "optimal")
+            stop("Error in easylp$sensitivity_objective: Problem is not optimal.", call. = FALSE)
         if (self$any_integer())
             stop("Sensitivity unavailable for problems with integer/binary variables")
         objective <- array(
@@ -619,7 +624,8 @@ active = {list(
     },
     sensitivity_rhs = function(arg) {
         error_field_assign()
-        stopifnot(private$stat == "optimal")
+        if (private$stat != "optimal")
+            stop("Error in easylp$sensitivity_rhs: Problem is not optimal.", call. = FALSE)
         if (self$any_integer())
             stop("Sensitivity unavailable for problems with integer/binary variables")
         rhs <- array(

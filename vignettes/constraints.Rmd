@@ -10,7 +10,7 @@ vignette: >
 ```{r, include = FALSE}
 knitr::opts_chunk$set(
   collapse = TRUE,
-  comment = "#"
+  comment = "#>"
 )
 ```
 
@@ -50,6 +50,7 @@ You may have seen linear constraints represented as $Ax\lesseqgtr b$. EasyLP sto
 
 ```{r}
 lp$constraint
+
 # This object is actually a list with these 3 fields:
 # lp$constraint$mat
 # lp$constraint$dir
