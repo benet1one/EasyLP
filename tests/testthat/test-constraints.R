@@ -30,4 +30,5 @@ test_that("badly defined constraints", {
     expect_error(lp$con(5))
     expect_error(lp$con(rowSums(x == 1)))
     expect_error(lp$con(x[0] == 1))
+    expect_error(lp$con(x[1, 100, 1] == 0))
 })

@@ -136,8 +136,7 @@ find_incorrect_index <- function(x, ...) {
         dimtitle <- names(dimnames(x))[d]
         if (is.null(dimtitle)) dimtitle <- d
 
-        browser()
-        stop("Invalid subscript on dimension ", dimtitle)
+        stop("Invalid subscript on dimension '", dimtitle, "'")
     }
 }
 
