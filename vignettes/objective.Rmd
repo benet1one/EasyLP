@@ -18,10 +18,6 @@ knitr::opts_chunk$set(
 library(easylp)
 ```
 
-# Warning
-
-This vignette is unfinished.
-
 # Introduction
 
 This vignette will explore the different ways to define the objective function. It does not assume any prior knowledge of the package. However, it's recommended to start with `vignette("easylp")`.
@@ -115,6 +111,10 @@ Functions `rowSums(), colSums(), rowMeans(), colMeans()` are supported, as well 
 ( lp$min(sum(rowSums(x) * 4:5)) )
 ```
 
+### Note for Advanced Users
+
+These functions are not methods, like `sum()` or `mean()`. Instead, they are redefined in a hidden environment, where the constraints and objective function are evaluated.
+
 ## Sum For
 
 The `sum_for()` notation is similar to the way sums are written in math. See these 2 examples to understand how to use it, and read the documentation for more information.
@@ -139,18 +139,6 @@ b = c(A=3, B=1, C=2)
 (lp$min(
     sum_for(i=1:2, j=names(b), (x[i,j] + y[i]) * b[j])
 ))
-```
-
-## Examples
-
-This section is unfinished.
-
-Let's define an arbitrary problem with a matrix variable `x` and a vector variable `y`. We'll write different objective functions mathematically and implement them in EasyLP.
-
-```{r}
-lp <- easylp$new()
-lp$var("x", rows = letters[1:5], cols = LETTERS[1:3])
-lp$var("y", rows = letters[1:5])
 ```
 
 # Posterior Transformations
