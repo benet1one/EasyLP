@@ -56,7 +56,8 @@ public = {list(
     constraint = list(
         mat = array(dim = c(0, 0)),
         dir = character(),
-        rhs = numeric()
+        rhs = numeric(),
+        names = character()
     ) |> structure(class = "lp_con"),
 
     objective_fun = numeric(),
@@ -190,15 +191,15 @@ public = {list(
         dots <- enexprs(...)
         for (k in seq_along(dots)) {
 
-            ref <- names2(dots)[k]
-            if (ref == "") ref <- k
+            name <- names(dots)[k]
+            ref <- name %||% (k)
             constraint <- try(private$eval(dots[[k]], envir), silent = TRUE)
 
             if (inherits(constraint, "try-error"))
                 stop("Constraint '", ref, "' evaluated to an error:\n", constraint)
 
             if (is_for_split(constraint)) {
-                split <- flatten_for_split(constraint, names2(dots)[k])
+                split <- flatten_for_split(constraint, name)
                 if (!is_lp_con(split[[1L]]))
                     stop("Constraint did not evaluate to an (in)equality.")
                 self$constraint <- join_constraints(self$constraint, !!!split)
@@ -211,7 +212,7 @@ public = {list(
                 warning("Constraint '", ref, "' is empty.")
                 next
             }
-            constraint <- name_constraint(constraint, names2(dots)[k])
+            constraint <- name_constraint(constraint, name)
             self$constraint <- join_constraints(self$constraint, constraint)
         }
         self$check_feasible()
@@ -307,9 +308,7 @@ public = {list(
     uncon = function(name) {
         if (!is_character(name))
             stop("Use the name <character> of a constraint to remove it.")
-        unind <- sub(rownames(self$constraint$mat),
-                     pattern = "\\[.+", replacement = "")
-        to_remove <- is.element(unind, name)
+        to_remove <- is.element(self$constraint$names, name)
         self$constraint$mat <- self$constraint$mat[!to_remove, , drop=FALSE]
         self$constraint$dir <- self$constraint$dir[!to_remove]
         self$constraint$rhs <- self$constraint$rhs[!to_remove]

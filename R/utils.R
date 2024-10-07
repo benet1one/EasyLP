@@ -80,6 +80,11 @@ flatten_for_split <- function(split, init_name = "") {
             }
 
         } else {
+            if (is_lp_con(x)) {
+                x <- name_constraint(x, name)
+                x$names <- rep(init_name, nrow(x$mat))
+            }
+
             atoms <<- append(atoms, list(x) |> set_names(name))
         }
     }
@@ -92,11 +97,10 @@ join_constraints <- function(constraint, ...) {
     for (k in seq_along(dots)) {
         con <- dots[[k]]
         stopifnot(is_lp_con(con))
-        if (is.null(rownames(con$mat)))
-            con <- name_constraint(con, names2(dots)[k])
         constraint$mat <- rbind(constraint$mat, con$mat)
         constraint$dir <- c(constraint$dir, unname(con$dir))
         constraint$rhs <- c(constraint$rhs, unname(con$rhs))
+        constraint$names <- c(constraint$names, con$names)
     }
     constraint
 }
@@ -147,9 +151,13 @@ name_variable <- function(name, sets) {
     index <- .mapply(dots = grid, FUN = paste, MoreArgs = list(sep = ","))
     paste0(name, "[", index, "]")
 }
-name_constraint <- function(constraint, name, previous = character()) {
-    if (name == "")
+name_constraint <- function(constraint, name) {
+    if (length(name) == 0 || name == "") {
+        constraint$names <- rep("", nrow(constraint$mat))
         return(constraint)
+    }
+    stopifnot(is_string(name))
+    constraint$names <- rep(name, nrow(constraint$mat))
     if (nrow(constraint$mat) > 1L)
         name <- paste0(name, "[", 1:nrow(constraint$mat), "]")
     rownames(constraint$mat) <- name
