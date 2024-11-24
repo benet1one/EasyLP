@@ -336,11 +336,12 @@ modified <- within(list(), {
 #' @examples
 #' factory <- c("A", "B")
 #' market <- c(1:3)
-#' transport_cost <- parameter(c(
+#' transport_cost <- c(
 #'     3, 4, 2,
 #'     6, 2, 5
-#' ), factory, market)
+#' ) |> parameter(factory, market, byrow = TRUE)
 parameter <- function(x, ..., byrow = FALSE) {
+    stopifnot(is_logical(byrow, n = 1L))
     if (...length() == 0L)
         stop("Parameter does not have any sets.")
     sets <- dots_list(..., .named = TRUE)
@@ -354,6 +355,8 @@ parameter <- function(x, ..., byrow = FALSE) {
             stop("Use 'byrow = TRUE' only with 2-dimensional arrays.")
         matrix(x, nrow = lengths(sets)[1L], dimnames = sets, byrow = TRUE)
     } else {
+        if (length(sets) == 2L)
+            inform("In parameter(), using 'byrow = FALSE' by default.")
         array(x, dim = lengths(sets), dimnames = sets)
     }
 }

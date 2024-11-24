@@ -24,8 +24,8 @@ sets. Similar to \code{number} in the SAS/OR proc optmodel.
 \examples{
 factory <- c("A", "B")
 market <- c(1:3)
-transport_cost <- parameter(c(
+transport_cost <- c(
     3, 4, 2,
     6, 2, 5
-), factory, market)
+) |> parameter(factory, market, byrow = TRUE)
 }
