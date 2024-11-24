@@ -150,7 +150,7 @@ Arith_lp_var <- function(e1, e2, .Generic) {
     if (.Generic %in% c("^", "%*%", "%%", "%/%"))
         stop("Can't use operations '^', '%%', '%/%' in a linear problem")
 
-    if (missing(e2)) {
+    if (is_missing(e2)) {
         # +x or -x
         if (.Generic == "-") e1$coef <- -e1$coef
         return(e1)
