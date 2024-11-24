@@ -180,28 +180,22 @@ update_bounds <- function(x, varlist) {
     bounds <- do.call(cbind, bounds)
     rownames(bounds) <- c("Lower", "Upper")
 
-    upper <- numeric(nrow(x$coef))
-    lower <- numeric(nrow(x$coef))
+    upper <- array(dim = dim(x$coef))
+    lower <- array(dim = dim(x$coef))
 
-    for (k in 1:nrow(x$coef)) {
-        pos <- x$coef[k, ] > 0
-        neg <- !pos
-        upper[k] <-
-            sum(x$coef[k, pos] * bounds["Upper", pos]) +
-            sum(x$coef[k, neg] * bounds["Lower", neg]) +
-            x$add[k]
-        lower[k] <-
-            sum(x$coef[k, pos] * bounds["Lower", pos]) +
-            sum(x$coef[k, neg] * bounds["Upper", neg]) +
-            x$add[k]
+    for (i in 1:nrow(x$coef))  for (j in 1:ncol(x$coef)) {
+        lim <- x$coef[i, j] * bounds[, j]
+        lim[is.nan(lim)] <- 0
+        # nan as a result of coef = 0, bound = Inf
+        upper[i, j] <- max(lim)
+        lower[i, j] <- min(lim)
     }
 
-    upper[is.nan(upper)] <- 0
-    lower[is.nan(lower)] <- 0
-    x$bound["Upper"] <- max(upper)
-    x$bound["Lower"] <- min(lower)
+    x$bound["Upper"] <- max(rowSums(upper) + x$add)
+    x$bound["Lower"] <- min(rowSums(lower) + x$add)
     return(x)
 }
+
 
 warn_changed_args <- function(..., .suffix = ".", envir = caller_env()) {
     dots <- enexprs(...)
