@@ -14,6 +14,7 @@ lp$con(
     r3 = for(b in B) x[, b, 2] >= 1,
     r4 = x <= z,
     r5 = cumsum(2*y + 1) >= 0,
+    r6 = -x > 2
 )
 
 lp$uncon("r3")

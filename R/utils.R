@@ -184,11 +184,11 @@ update_bounds <- function(x, varlist) {
     lower <- array(dim = dim(x$coef))
 
     for (i in 1:nrow(x$coef))  for (j in 1:ncol(x$coef)) {
-        lim <- x$coef[i, j] * bounds[, j]
+        lim <- x$coef[i,j] * bounds[,j]
         lim[is.nan(lim)] <- 0
         # nan as a result of coef = 0, bound = Inf
-        upper[i, j] <- max(lim)
-        lower[i, j] <- min(lim)
+        upper[i,j] <- max(lim)
+        lower[i,j] <- min(lim)
     }
 
     x$bound["Upper"] <- max(rowSums(upper) + x$add)
@@ -196,6 +196,25 @@ update_bounds <- function(x, varlist) {
     return(x)
 }
 
+warn_decreasing_transformation <- function(f, bounds) {
+    lower <- if (is.finite(bounds[1L])) bounds[1L]  else -1e3
+    upper <- if (is.finite(bounds[2L])) bounds[2L]  else max(1e3, lower + 2e3)
+    last_y <- -Inf
+
+    for (x in seq(lower, upper, length.out = 64)) {
+        y <- try(f(x))
+        if (inherits(y, "try-error") || is.nan(y)) {
+            warning("Could not ensure transformation is increasing within bounds of objective value.")
+            return()
+        }
+        if (y < last_y) {
+            warning("Transformation decreases within bounds of objective value.",
+                    "Solution might not be optimal with linear methods.")
+            return()
+        }
+        last_y <- y
+    }
+}
 
 warn_changed_args <- function(..., .suffix = ".", envir = caller_env()) {
     dots <- enexprs(...)
@@ -350,7 +369,7 @@ parameter <- function(x, ..., byrow = FALSE) {
         matrix(x, nrow = lengths(sets)[1L], dimnames = sets, byrow = TRUE)
     } else {
         if (length(sets) == 2L)
-            inform("In parameter(), using 'byrow = FALSE' by default.")
+            message("In parameter(), using 'byrow = FALSE' by default.")
         array(x, dim = lengths(sets), dimnames = sets)
     }
 }

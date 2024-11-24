@@ -516,8 +516,14 @@ private = {list(
             stop("Objective function doesn't contain any variables.")
         if (length(x) > 1)
             stop("Objective function contains multiple variables. Please wrap them in a sum().")
+
         self$objective_fun[] <- x$coef
         self$objective_add[] <- x$add
+
+        x <- update_bounds(x, self$variables)
+        trans <- rlang::as_function(trans)
+        warn_decreasing_transformation(trans, x$bound)
+
         self$objective_transform <- trans
         self$reset_solution()
 
@@ -598,7 +604,7 @@ active = {list(
         if (missing(arg))
             private$objtrans [[1L]]
         else
-            private$objtrans [[1L]] <- as_function(arg)
+            private$objtrans [[1L]] <- arg
     },
     status = function(arg) {
         error_field_assign()
