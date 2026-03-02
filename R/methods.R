@@ -78,6 +78,14 @@ print.lp_con <- function(x, ...) {
     mat <- with(x, cbind(mat, dir=dir, rhs=rhs))
     print(mat, quote = FALSE)
 }
+#' @export
+dim.lp_con <- function(x) {
+    dim(x$mat)
+}
+#' @export
+dimnames.lp_con <- function(x) {
+    dimnames(x$mat)
+}
 
 horizontal_multiply <- function(x, mult) {
 
